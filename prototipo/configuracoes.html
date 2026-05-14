@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinanceiroPro - Configurações</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo">FinanceiroPro</span>
+        <div class="sidebar-header-icons">
+          <button title="Tema"><i data-lucide="moon" style="width:18px;height:18px"></i></button>
+          <button id="menu-toggle" title="Menu"><i data-lucide="menu" style="width:18px;height:18px"></i></button>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item"><i data-lucide="layout-grid"></i> Visão Geral</a>
+        <a href="contas.html" class="nav-item"><i data-lucide="wallet"></i> Contas</a>
+        <a href="receitas.html" class="nav-item"><i data-lucide="circle-arrow-up"></i> Receitas</a>
+        <a href="despesas.html" class="nav-item"><i data-lucide="circle-arrow-down"></i> Despesas</a>
+        <a href="relatorios.html" class="nav-item"><i data-lucide="bar-chart-3"></i> Relatórios</a>
+        <a href="agendamentos.html" class="nav-item"><i data-lucide="calendar"></i> Agendamentos</a>
+        <a href="configuracoes.html" class="nav-item active"><i data-lucide="settings"></i> Configurações</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-avatar">S</div>
+        <div class="user-info"><div class="user-name">Saudemed</div><div class="user-plan">Premium Plan</div></div>
+        <button class="logout-btn" title="Sair"><i data-lucide="log-out" style="width:18px;height:18px"></i></button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <div class="page-header-left">
+          <h1>Agendamentos</h1>
+          <p>Bem-vindo de volta ao seu controle financeiro.</p>
+        </div>
+        <div class="page-header-right">
+          <button class="icon-btn" title="Tema"><i data-lucide="moon" style="width:18px;height:18px"></i></button>
+          <button class="icon-btn" title="Imprimir"><i data-lucide="printer" style="width:18px;height:18px"></i></button>
+          <button class="btn btn-green"><i data-lucide="plus" style="width:16px;height:16px"></i> Nova Receita</button>
+          <button class="btn btn-red"><i data-lucide="plus" style="width:16px;height:16px"></i> Nova Despesa</button>
+          <button class="btn btn-outline"><i data-lucide="calendar" style="width:16px;height:16px"></i> Agendar</button>
+        </div>
+      </header>
+
+      <section class="page-content">
+        <div class="settings-container">
+          <h2 class="settings-title">
+            <i data-lucide="settings" style="width:24px;height:24px"></i>
+            Configurações
+          </h2>
+          <p class="settings-subtitle">Gerencie suas preferências e segurança.</p>
+
+          <!-- PERFIL -->
+          <div class="settings-section-label">Perfil</div>
+          <div class="settings-card">
+            <div class="settings-avatar">
+              <span style="font-size:1.2rem">🏥</span>
+            </div>
+            <div class="settings-card__info">
+              <div class="settings-card__name">Saudemed</div>
+              <div class="settings-card__email">marcos3ms@icloud.com</div>
+            </div>
+            <button class="btn btn-outline">Editar Perfil</button>
+          </div>
+
+          <!-- APARÊNCIA -->
+          <div class="settings-section-label">Aparência</div>
+          <div class="settings-card settings-card--row">
+            <div class="settings-card__left">
+              <div class="settings-icon">
+                <i data-lucide="sun" style="width:20px;height:20px"></i>
+              </div>
+              <div>
+                <div class="settings-card__name">Modo Escuro</div>
+                <div class="settings-card__email">Alterne entre os temas claro e escuro.</div>
+              </div>
+            </div>
+            <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0"></div>
+          </div>
+
+          <!-- SEGURANÇA -->
+          <div class="settings-section-label">Segurança</div>
+          <div class="settings-card">
+            <div class="settings-icon">
+              <i data-lucide="lock" style="width:20px;height:20px"></i>
+            </div>
+            <div class="settings-card__info">
+              <div class="settings-card__name">Alterar Senha</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="js/app.js"></script>
+</body>
+</html>

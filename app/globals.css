@@ -1,0 +1,157 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tema escuro (padrão) */
+    --c-bg-primary: #0b1120;
+    --c-bg-secondary: #0f172a;
+    --c-bg-card: #111827;
+    --c-bg-elevated: #1e293b;
+    --c-bg-input: #0f172a;
+    --c-bg-overlay: rgba(0, 0, 0, 0.6);
+    --c-border: #1e293b;
+    --c-border-accent: #2d3a52;
+    --c-fg-primary: #f1f5f9;
+    --c-fg-secondary: #94a3b8;
+    --c-fg-muted: #64748b;
+    --c-fg-label: #cbd5e1;
+    --c-green-bg: rgba(16, 185, 129, 0.12);
+    --c-red-bg: rgba(239, 68, 68, 0.12);
+    --c-blue-bg: rgba(59, 130, 246, 0.15);
+    --c-select-chevron: "%2394a3b8";
+  }
+
+  html.light {
+    --c-bg-primary: #f1f5f9;
+    --c-bg-secondary: #ffffff;
+    --c-bg-card: #ffffff;
+    --c-bg-elevated: #f1f5f9;
+    --c-bg-input: #ffffff;
+    --c-bg-overlay: rgba(15, 23, 42, 0.45);
+    --c-border: #e2e8f0;
+    --c-border-accent: #cbd5e1;
+    --c-fg-primary: #0f172a;
+    --c-fg-secondary: #475569;
+    --c-fg-muted: #64748b;
+    --c-fg-label: #334155;
+    --c-green-bg: rgba(16, 185, 129, 0.18);
+    --c-red-bg: rgba(239, 68, 68, 0.18);
+    --c-blue-bg: rgba(59, 130, 246, 0.18);
+    --c-select-chevron: "%2364748b";
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: theme("colors.bg.primary");
+    color: theme("colors.fg.primary");
+    font-family: theme("fontFamily.sans");
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ul,
+  ol {
+    list-style: none;
+  }
+
+  button {
+    font-family: inherit;
+    color: inherit;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-2 rounded px-5 py-2.5 text-sm font-semibold whitespace-nowrap transition-all;
+  }
+  .btn-green {
+    @apply bg-brand-green text-white hover:bg-brand-green-hover hover:shadow-green-glow;
+  }
+  .btn-red {
+    @apply bg-brand-red text-white hover:bg-brand-red-hover hover:shadow-red-glow;
+  }
+  .btn-blue {
+    @apply bg-brand-blue text-white hover:bg-brand-blue-hover;
+  }
+  .btn-outline {
+    @apply border border-border text-fg-primary hover:border-fg-muted hover:bg-bg-elevated;
+  }
+  .btn-dark {
+    @apply border border-border bg-bg-card text-fg-primary hover:bg-bg-elevated;
+  }
+  .btn-full {
+    @apply w-full justify-center;
+  }
+  .btn-lg {
+    @apply px-6 py-3.5 text-[0.95rem];
+  }
+
+  .icon-btn {
+    @apply flex h-10 w-10 items-center justify-center rounded border border-border text-fg-muted transition-all hover:border-fg-muted hover:text-fg-primary;
+  }
+
+  .form-input,
+  .form-select {
+    @apply w-full rounded border border-border bg-bg-input px-3.5 py-2.5 text-[0.9rem] text-fg-primary outline-none transition-colors focus:border-brand-blue;
+  }
+  .form-input::placeholder {
+    color: theme("colors.fg.muted");
+  }
+  .form-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M4.646 5.646a.5.5 0 0 1 .708 0L8 8.293l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+}
+
+@media print {
+  :root,
+  html,
+  html.light {
+    --c-bg-primary: #ffffff;
+    --c-bg-secondary: #ffffff;
+    --c-bg-card: #ffffff;
+    --c-bg-elevated: #f1f5f9;
+    --c-bg-input: #ffffff;
+    --c-bg-overlay: rgba(15, 23, 42, 0.45);
+    --c-border: #cbd5e1;
+    --c-border-accent: #94a3b8;
+    --c-fg-primary: #000000;
+    --c-fg-secondary: #1f2937;
+    --c-fg-muted: #475569;
+    --c-fg-label: #1f2937;
+    --c-green-bg: rgba(16, 185, 129, 0.12);
+    --c-red-bg: rgba(239, 68, 68, 0.12);
+    --c-blue-bg: rgba(59, 130, 246, 0.15);
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
