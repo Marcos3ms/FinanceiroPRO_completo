@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.claude
+prototipo
+css
+js
+Dockerfile
+.dockerignore
+supabase
+README.md
