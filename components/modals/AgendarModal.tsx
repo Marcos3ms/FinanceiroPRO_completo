@@ -56,6 +56,11 @@ function AgendarForm({
   );
   const needsPaymentDetails =
     paymentMethod === "pix" || paymentMethod === "transferencia";
+  const [frequencia, setFrequencia] = useState<string>(
+    initial?.frequencia ?? "mensal",
+  );
+  const isEditing = !!initial;
+  const showQuantidade = frequencia === "mensal" && !isEditing;
   const [state, formAction] = useFormState(
     saveScheduleAction,
     initialActionState,
@@ -67,6 +72,7 @@ function AgendarForm({
       formRef.current?.reset();
       setActive(new Set());
       setPaymentMethod("");
+      setFrequencia("mensal");
       onDone();
     }
   }, [state.ok, onDone]);
@@ -119,7 +125,8 @@ function AgendarForm({
             id="agendar-frequencia"
             name="frequencia"
             className="form-select"
-            defaultValue={initial?.frequencia ?? "mensal"}
+            value={frequencia}
+            onChange={(e) => setFrequencia(e.target.value)}
           >
             <option value="mensal">Mensal</option>
             <option value="semanal">Semanal</option>
@@ -127,6 +134,24 @@ function AgendarForm({
           </select>
         </FormGroup>
       </FormRow>
+
+      {showQuantidade && (
+        <FormGroup
+          label="Quantidade de meses"
+          htmlFor="agendar-quantidade-meses"
+        >
+          <input
+            id="agendar-quantidade-meses"
+            name="quantidade_meses"
+            type="number"
+            min={1}
+            max={120}
+            defaultValue={1}
+            className="form-input"
+            placeholder="Ex: 12 para um ano de agendamentos"
+          />
+        </FormGroup>
+      )}
 
       <FormRow>
         <FormGroup label="Data de Vencimento" htmlFor="agendar-vencimento">

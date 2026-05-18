@@ -7,6 +7,17 @@ import { parseValor, type ActionState } from "@/features/common/types";
 const VALID_FREQ = new Set(["mensal", "semanal", "anual"]);
 const VALID_PAYMENT_METHODS = new Set(["pix", "transferencia", "boleto"]);
 
+/** Avança N meses preservando o dia (clipping no último dia quando o mês destino não tem). */
+function addMonths(dateStr: string, monthsToAdd: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const targetMonthIndex = month - 1 + monthsToAdd; // 0-based
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+  const targetDay = Math.min(day, lastDay);
+  return `${targetYear}-${String(normalizedMonth + 1).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+}
+
 export async function saveScheduleAction(
   _prev: ActionState,
   formData: FormData,
@@ -27,6 +38,11 @@ export async function saveScheduleAction(
     paymentMethod === "pix" || paymentMethod === "transferencia"
       ? String(formData.get("payment_details") ?? "").trim() || null
       : null;
+  const quantidadeMesesRaw = Number(formData.get("quantidade_meses") ?? 1);
+  const quantidadeMeses =
+    Number.isFinite(quantidadeMesesRaw) && quantidadeMesesRaw >= 1
+      ? Math.min(120, Math.floor(quantidadeMesesRaw))
+      : 1;
 
   if (!descricao) return { error: "Informe a descrição.", ok: false };
   if (valor === null || valor <= 0)
@@ -58,6 +74,14 @@ export async function saveScheduleAction(
       .from("schedules")
       .update(payload)
       .eq("id", id);
+    if (error) return { error: error.message, ok: false };
+  } else if (frequencia === "mensal" && quantidadeMeses > 1) {
+    const rows = Array.from({ length: quantidadeMeses }, (_, i) => ({
+      ...payload,
+      user_id: user.id,
+      vencimento: addMonths(vencimento, i),
+    }));
+    const { error } = await supabase.from("schedules").insert(rows);
     if (error) return { error: error.message, ok: false };
   } else {
     const { error } = await supabase

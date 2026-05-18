@@ -49,7 +49,7 @@ export default async function CapaDespesaPage({
     supabase
       .from("transactions")
       .select(
-        "id, type, descricao, valor, data, categoria, accounts(nome)",
+        "id, type, descricao, valor, data, categoria, payment_method, payment_details, accounts(nome)",
       )
       .eq("id", params.id)
       .eq("user_id", user.id)
@@ -66,6 +66,23 @@ export default async function CapaDespesaPage({
   const accountName = Array.isArray(row.accounts)
     ? (row.accounts[0]?.nome ?? "—")
     : ((row.accounts as { nome: string } | null)?.nome ?? "—");
+
+  const PAYMENT_LABEL: Record<string, string> = {
+    pix: "PIX",
+    transferencia: "Transferência bancária",
+    boleto: "Boleto",
+  };
+  const paymentMethodLabel = row.payment_method
+    ? (PAYMENT_LABEL[row.payment_method] ?? row.payment_method)
+    : null;
+  const paymentDetailsLabel =
+    row.payment_method === "pix"
+      ? "Chave PIX"
+      : row.payment_method === "transferencia"
+        ? "Dados bancários"
+        : null;
+  const showPaymentDetails =
+    !!paymentDetailsLabel && !!row.payment_details;
 
   const issuedAt = new Date();
 
@@ -115,6 +132,15 @@ export default async function CapaDespesaPage({
                 timeZone: "UTC",
               })}
             />
+            {paymentMethodLabel && (
+              <Field label="Forma de Pagamento" value={paymentMethodLabel} />
+            )}
+            {showPaymentDetails && (
+              <Field
+                label={paymentDetailsLabel!}
+                value={row.payment_details!}
+              />
+            )}
             <Field
               label="Valor"
               value={formatBRL(Number(row.valor))}
