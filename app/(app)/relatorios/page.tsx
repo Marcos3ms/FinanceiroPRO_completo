@@ -7,6 +7,7 @@ import CompanyForm from "@/components/reports/CompanyForm";
 import DespesasPorCategoria from "@/components/reports/DespesasPorCategoria";
 import ReceitasVsDespesas from "@/components/reports/ReceitasVsDespesas";
 import Extrato from "@/components/reports/Extrato";
+import AgendamentosRelatorio from "@/components/reports/AgendamentosRelatorio";
 import PrintButton from "@/components/reports/PrintButton";
 import { createClient } from "@/lib/supabase/server";
 import { formatBRL } from "@/features/common/types";
@@ -14,10 +15,11 @@ import { formatBRL } from "@/features/common/types";
 export const metadata = { title: "Relatórios - FinanceiroPro" };
 
 type SP = {
-  tipo?: "receitas" | "despesas" | "comparativo" | "extrato";
+  tipo?: "receitas" | "despesas" | "comparativo" | "extrato" | "agendamentos";
   account_id?: string;
   inicio?: string;
   fim?: string;
+  mes?: string;
 };
 
 const MONTH_NAMES = [
@@ -34,6 +36,51 @@ const MONTH_NAMES = [
   "Nov",
   "Dez",
 ];
+
+const MONTH_NAMES_FULL = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+function todayInBrazil(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date());
+}
+
+function currentMonthBR(): string {
+  return todayInBrazil().slice(0, 7);
+}
+
+function isValidMonth(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+function nextMonthStart(mes: string): string {
+  const [year, month] = mes.split("-").map(Number);
+  const d = new Date(year, month, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+type ScheduleStatus = "pago" | "atrasado" | "vence_hoje" | "pendente";
+
+function computeStatus(vencimento: string, paidAt: string | null): ScheduleStatus {
+  if (paidAt) return "pago";
+  const today = todayInBrazil();
+  if (vencimento < today) return "atrasado";
+  if (vencimento === today) return "vence_hoje";
+  return "pendente";
+}
 
 export default async function RelatoriosPage({
   searchParams,
@@ -52,6 +99,7 @@ export default async function RelatoriosPage({
   const fim = searchParams.fim ?? "";
 
   const isExtrato = tipo === "extrato";
+  const isAgendamentos = tipo === "agendamentos";
 
   const [{ data: profile }, { data: accounts }, { data: filteredRows }, { data: last6Rows }] =
     await Promise.all([
@@ -66,6 +114,10 @@ export default async function RelatoriosPage({
         .eq("user_id", user.id)
         .order("created_at", { ascending: true }),
       (() => {
+        if (isAgendamentos) {
+          // Não buscar transações quando é agendamentos
+          return Promise.resolve({ data: [], error: null });
+        }
         let q = supabase
           .from("transactions")
           .select(
@@ -83,6 +135,9 @@ export default async function RelatoriosPage({
         return q;
       })(),
       (() => {
+        if (isAgendamentos) {
+          return Promise.resolve({ data: [], error: null });
+        }
         const since = new Date();
         since.setMonth(since.getMonth() - 5);
         since.setDate(1);
@@ -95,6 +150,54 @@ export default async function RelatoriosPage({
           .gte("data", sinceStr);
       })(),
     ]);
+
+  // ─── Buscar agendamentos quando tipo = "agendamentos" ───
+  let scheduleRows: {
+    id: string;
+    descricao: string;
+    valor: number;
+    frequencia: string;
+    vencimento: string;
+    categoria: string | null;
+    accountName: string;
+    status: ScheduleStatus;
+  }[] = [];
+  let scheduleMonthLabel = "";
+
+  if (isAgendamentos) {
+    const requestedMes = searchParams.mes ?? "";
+    const mes = isValidMonth(requestedMes) ? requestedMes : currentMonthBR();
+    const startOfMonth = `${mes}-01`;
+    const startOfNextMonth = nextMonthStart(mes);
+    const [year, monthIdx] = mes.split("-").map(Number);
+    scheduleMonthLabel = `${MONTH_NAMES_FULL[monthIdx - 1]} de ${year}`;
+
+    const { data: schedulesData } = await supabase
+      .from("schedules")
+      .select(
+        "id, descricao, valor, frequencia, vencimento, categoria, paid_at, account_id, accounts(nome)",
+      )
+      .eq("user_id", user.id)
+      .gte("vencimento", startOfMonth)
+      .lt("vencimento", startOfNextMonth)
+      .order("vencimento", { ascending: true });
+
+    scheduleRows = (schedulesData ?? []).map((s) => {
+      const accountName = Array.isArray(s.accounts)
+        ? (s.accounts[0]?.nome ?? "—")
+        : ((s.accounts as { nome: string } | null)?.nome ?? "—");
+      return {
+        id: s.id,
+        descricao: s.descricao,
+        valor: Number(s.valor),
+        frequencia: s.frequencia,
+        vencimento: s.vencimento,
+        categoria: s.categoria,
+        accountName,
+        status: computeStatus(s.vencimento, s.paid_at),
+      };
+    });
+  }
 
   const rows = filteredRows ?? [];
 
@@ -154,6 +257,11 @@ export default async function RelatoriosPage({
     ? (accounts ?? []).find((a) => a.id === accountId)
     : null;
 
+  // Determinar mês atual para o filtro de agendamentos
+  const currentMes = isAgendamentos
+    ? (isValidMonth(searchParams.mes ?? "") ? searchParams.mes! : currentMonthBR())
+    : "";
+
   return (
     <>
       <PageHeader
@@ -191,38 +299,53 @@ export default async function RelatoriosPage({
                 <option value="comparativo">Comparativo</option>
                 <option value="receitas">Receitas</option>
                 <option value="despesas">Despesas</option>
+                <option value="agendamentos">Agendamentos</option>
               </select>
             </FilterGroup>
-            <FilterGroup label="Conta">
-              <select
-                name="account_id"
-                className="form-select"
-                defaultValue={accountId}
-              >
-                <option value="">Todas</option>
-                {(accounts ?? []).map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nome}
-                  </option>
-                ))}
-              </select>
-            </FilterGroup>
-            <FilterGroup label="Data Início">
-              <input
-                name="inicio"
-                type="date"
-                className="form-input"
-                defaultValue={inicio}
-              />
-            </FilterGroup>
-            <FilterGroup label="Data Fim">
-              <input
-                name="fim"
-                type="date"
-                className="form-input"
-                defaultValue={fim}
-              />
-            </FilterGroup>
+            {!isAgendamentos && (
+              <>
+                <FilterGroup label="Conta">
+                  <select
+                    name="account_id"
+                    className="form-select"
+                    defaultValue={accountId}
+                  >
+                    <option value="">Todas</option>
+                    {(accounts ?? []).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nome}
+                      </option>
+                    ))}
+                  </select>
+                </FilterGroup>
+                <FilterGroup label="Data Início">
+                  <input
+                    name="inicio"
+                    type="date"
+                    className="form-input"
+                    defaultValue={inicio}
+                  />
+                </FilterGroup>
+                <FilterGroup label="Data Fim">
+                  <input
+                    name="fim"
+                    type="date"
+                    className="form-input"
+                    defaultValue={fim}
+                  />
+                </FilterGroup>
+              </>
+            )}
+            {isAgendamentos && (
+              <FilterGroup label="Mês de Referência">
+                <input
+                  name="mes"
+                  type="month"
+                  className="form-input"
+                  defaultValue={currentMes}
+                />
+              </FilterGroup>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" className="btn btn-blue">
@@ -232,16 +355,23 @@ export default async function RelatoriosPage({
               Limpar
             </Link>
             <PrintButton />
-            <a
-              href={`/api/export?${exportParams.toString()}`}
-              className="btn btn-blue"
-            >
-              Exportar CSV
-            </a>
+            {!isAgendamentos && (
+              <a
+                href={`/api/export?${exportParams.toString()}`}
+                className="btn btn-blue"
+              >
+                Exportar CSV
+              </a>
+            )}
           </div>
         </form>
 
-        {isExtrato ? (
+        {isAgendamentos ? (
+          <AgendamentosRelatorio
+            rows={scheduleRows}
+            monthLabel={scheduleMonthLabel}
+          />
+        ) : isExtrato ? (
           <Extrato
             rows={rows.map((r) => ({
               id: r.id,
