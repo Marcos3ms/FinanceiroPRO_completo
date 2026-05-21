@@ -57,7 +57,7 @@ export default function AgendamentosRelatorio({
     .reduce((s, r) => s + r.valor, 0);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg-card">
+    <div className="overflow-x-auto rounded-lg border border-border bg-bg-card print:overflow-visible">
       <div className="px-6 pb-4 pt-6">
         <h2 className="mb-1 text-[1.1rem] font-semibold text-fg-primary">
           Relatório de Agendamentos — {monthLabel}

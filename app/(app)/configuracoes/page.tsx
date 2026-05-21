@@ -26,8 +26,8 @@ export default async function ConfiguracoesPage() {
     <>
       <PageHeader title="Configurações" actions={<HeaderActions />} />
 
-      <section className="px-8 pb-8">
-        <div className="max-w-[750px] rounded-lg border border-border bg-bg-card p-8">
+      <section className="px-4 pb-8 sm:px-8">
+        <div className="max-w-[750px] rounded-lg border border-border bg-bg-card p-6 sm:p-8">
           <div className="mb-1 flex items-center gap-3 text-[1.4rem] font-bold">
             <SettingsIcon className="text-fg-muted" />
             Configurações

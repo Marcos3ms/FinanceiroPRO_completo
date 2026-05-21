@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 
 export function DataTableWrapper({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg-card">
+    <div className="overflow-x-auto rounded-lg border border-border bg-bg-card print:overflow-visible">
       <table className="w-full border-collapse">{children}</table>
     </div>
   );

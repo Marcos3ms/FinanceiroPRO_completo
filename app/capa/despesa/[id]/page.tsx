@@ -103,7 +103,7 @@ export default async function CapaDespesaPage({
           <PrintNowButton />
         </div>
 
-        <article className="rounded-lg border border-border bg-bg-card p-10 shadow-card print:rounded-none print:shadow-none">
+        <article className="rounded-lg border border-border bg-bg-card p-6 shadow-card sm:p-10 print:rounded-none print:shadow-none print:p-10">
           <header className="mb-8 border-b border-border pb-6 text-center">
             {profile?.company_name ? (
               <h1 className="text-2xl font-bold uppercase tracking-wider text-brand-blue">

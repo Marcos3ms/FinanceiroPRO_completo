@@ -27,11 +27,11 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-bg-overlay backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-bg-overlay p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-lg border border-border bg-bg-card p-8 shadow-modal"
+        className="max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-lg border border-border bg-bg-card p-6 shadow-modal sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">

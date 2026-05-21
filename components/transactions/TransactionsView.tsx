@@ -71,7 +71,7 @@ export default async function TransactionsView({
     <>
       <PageHeader title={title} subtitle={subtitle} actions={<HeaderActions />} />
 
-      <section className="px-8 pb-8">
+      <section className="px-4 pb-8 sm:px-8">
         <form method="get" className="print:hidden">
           <FilterBar>
             <FilterGroup label="Categoria">

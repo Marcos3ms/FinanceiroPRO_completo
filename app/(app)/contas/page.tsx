@@ -31,7 +31,7 @@ export default async function ContasPage() {
         actions={<HeaderActions />}
       />
 
-      <section className="px-8 pb-8">
+      <section className="px-4 pb-8 sm:px-8">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
           <NovaContaCard />
 

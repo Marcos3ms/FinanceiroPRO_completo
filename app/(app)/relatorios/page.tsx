@@ -246,7 +246,7 @@ export default async function RelatoriosPage({
         actions={<HeaderActions />}
       />
 
-      <section className="px-8 pb-8">
+      <section className="px-4 pb-8 sm:px-8">
         {selectedAccount && (
           <div className="mb-6 hidden border-b border-border pb-4 text-center print:block">
             <p className="text-[0.85rem] font-semibold uppercase tracking-wider text-brand-blue">

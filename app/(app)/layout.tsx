@@ -37,7 +37,7 @@ export default async function AppLayout({
     <ModalsProvider accounts={accounts} profile={profile} email={email}>
       <div className="flex min-h-screen">
         <Sidebar profile={profile} email={email} />
-        <main className="min-h-screen flex-1 md:ml-sidebar print:ml-0">
+        <main className="min-h-screen min-w-0 flex-1 md:ml-sidebar print:ml-0">
           <CompanyHeader
             companyName={profile?.company_name ?? null}
             cnpj={profile?.cnpj ?? null}

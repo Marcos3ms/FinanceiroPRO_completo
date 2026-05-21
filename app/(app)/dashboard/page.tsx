@@ -51,7 +51,7 @@ export default async function DashboardPage() {
         actions={<HeaderActions />}
       />
 
-      <section className="px-8 pb-8">
+      <section className="px-4 pb-8 sm:px-8">
         <CompanyHeader
           companyName={profile?.company_name ?? null}
           cnpj={profile?.cnpj ?? null}
