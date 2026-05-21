@@ -8,7 +8,12 @@ import { DataTableWrapper, EmptyRow } from "@/components/ui/DataTable";
 import { DeleteIconButton } from "@/components/ui/DeleteButton";
 import EditButton from "@/components/ui/EditButton";
 import { CATEGORIES } from "@/lib/categories";
-import { formatBRL } from "@/features/common/types";
+import {
+  formatBRL,
+  currentMonthBR,
+  isValidMonth,
+  nextMonthStart,
+} from "@/features/common/types";
 import { createClient } from "@/lib/supabase/server";
 import { deleteTransactionAction } from "@/features/transactions/actions";
 
@@ -20,8 +25,7 @@ const HEADER_TH =
 
 type SearchParams = {
   categoria?: string;
-  inicio?: string;
-  fim?: string;
+  mes?: string;
 };
 
 export default async function TransactionsView({
@@ -41,6 +45,10 @@ export default async function TransactionsView({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const mes = isValidMonth(searchParams.mes ?? "")
+    ? searchParams.mes!
+    : currentMonthBR();
+
   let query = supabase
     .from("transactions")
     .select(
@@ -48,12 +56,12 @@ export default async function TransactionsView({
     )
     .eq("user_id", user.id)
     .eq("type", type)
+    .gte("data", `${mes}-01`)
+    .lt("data", nextMonthStart(mes))
     .order("data", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (searchParams.categoria) query = query.eq("categoria", searchParams.categoria);
-  if (searchParams.inicio) query = query.gte("data", searchParams.inicio);
-  if (searchParams.fim) query = query.lte("data", searchParams.fim);
 
   const { data: rows } = await query;
   const transactions = rows ?? [];
@@ -80,20 +88,12 @@ export default async function TransactionsView({
                 ))}
               </select>
             </FilterGroup>
-            <FilterGroup label="Data Início">
+            <FilterGroup label="Competência">
               <input
-                name="inicio"
-                type="date"
+                name="mes"
+                type="month"
                 className="form-input"
-                defaultValue={searchParams.inicio ?? ""}
-              />
-            </FilterGroup>
-            <FilterGroup label="Data Fim">
-              <input
-                name="fim"
-                type="date"
-                className="form-input"
-                defaultValue={searchParams.fim ?? ""}
+                defaultValue={mes}
               />
             </FilterGroup>
             <button type="submit" className="btn btn-blue">

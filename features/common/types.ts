@@ -66,3 +66,20 @@ export function todayBR(): string {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
 }
+
+/** Mês atual no fuso de São Paulo no formato YYYY-MM (compatível com input type="month"). */
+export function currentMonthBR(): string {
+  return todayBR().slice(0, 7);
+}
+
+/** Valida uma competência no formato YYYY-MM. */
+export function isValidMonth(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+/** Primeiro dia do mês seguinte (YYYY-MM-01) a partir de uma competência YYYY-MM. */
+export function nextMonthStart(mes: string): string {
+  const [year, month] = mes.split("-").map(Number);
+  const d = new Date(year, month, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}

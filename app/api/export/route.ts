@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isValidMonth, nextMonthStart } from "@/features/common/types";
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -20,8 +21,7 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const tipo = params.get("tipo") ?? "todos";
   const accountId = params.get("account_id") ?? "";
-  const inicio = params.get("inicio") ?? "";
-  const fim = params.get("fim") ?? "";
+  const mes = params.get("mes") ?? "";
 
   let query = supabase
     .from("transactions")
@@ -35,8 +35,9 @@ export async function GET(req: NextRequest) {
   if (tipo === "receitas") query = query.eq("type", "receita");
   else if (tipo === "despesas") query = query.eq("type", "despesa");
   if (accountId) query = query.eq("account_id", accountId);
-  if (inicio) query = query.gte("data", inicio);
-  if (fim) query = query.lte("data", fim);
+  if (isValidMonth(mes)) {
+    query = query.gte("data", `${mes}-01`).lt("data", nextMonthStart(mes));
+  }
 
   const { data, error } = await query;
   if (error) {

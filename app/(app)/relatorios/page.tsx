@@ -10,15 +10,19 @@ import Extrato from "@/components/reports/Extrato";
 import AgendamentosRelatorio from "@/components/reports/AgendamentosRelatorio";
 import PrintButton from "@/components/reports/PrintButton";
 import { createClient } from "@/lib/supabase/server";
-import { formatBRL } from "@/features/common/types";
+import {
+  formatBRL,
+  todayBR,
+  currentMonthBR,
+  isValidMonth,
+  nextMonthStart,
+} from "@/features/common/types";
 
 export const metadata = { title: "Relatórios - FinanceiroPro" };
 
 type SP = {
   tipo?: "receitas" | "despesas" | "comparativo" | "extrato" | "agendamentos";
   account_id?: string;
-  inicio?: string;
-  fim?: string;
   mes?: string;
 };
 
@@ -52,31 +56,11 @@ const MONTH_NAMES_FULL = [
   "Dezembro",
 ];
 
-function todayInBrazil(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date());
-}
-
-function currentMonthBR(): string {
-  return todayInBrazil().slice(0, 7);
-}
-
-function isValidMonth(value: string): boolean {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
-}
-
-function nextMonthStart(mes: string): string {
-  const [year, month] = mes.split("-").map(Number);
-  const d = new Date(year, month, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
-
 type ScheduleStatus = "pago" | "atrasado" | "vence_hoje" | "pendente";
 
 function computeStatus(vencimento: string, paidAt: string | null): ScheduleStatus {
   if (paidAt) return "pago";
-  const today = todayInBrazil();
+  const today = todayBR();
   if (vencimento < today) return "atrasado";
   if (vencimento === today) return "vence_hoje";
   return "pendente";
@@ -95,8 +79,9 @@ export default async function RelatoriosPage({
 
   const tipo = searchParams.tipo ?? "extrato";
   const accountId = searchParams.account_id ?? "";
-  const inicio = searchParams.inicio ?? "";
-  const fim = searchParams.fim ?? "";
+  const mes = isValidMonth(searchParams.mes ?? "")
+    ? searchParams.mes!
+    : currentMonthBR();
 
   const isExtrato = tipo === "extrato";
   const isAgendamentos = tipo === "agendamentos";
@@ -130,8 +115,7 @@ export default async function RelatoriosPage({
         if (tipo === "receitas") q = q.eq("type", "receita");
         else if (tipo === "despesas") q = q.eq("type", "despesa");
         if (accountId) q = q.eq("account_id", accountId);
-        if (inicio) q = q.gte("data", inicio);
-        if (fim) q = q.lte("data", fim);
+        q = q.gte("data", `${mes}-01`).lt("data", nextMonthStart(mes));
         return q;
       })(),
       (() => {
@@ -165,8 +149,6 @@ export default async function RelatoriosPage({
   let scheduleMonthLabel = "";
 
   if (isAgendamentos) {
-    const requestedMes = searchParams.mes ?? "";
-    const mes = isValidMonth(requestedMes) ? requestedMes : currentMonthBR();
     const startOfMonth = `${mes}-01`;
     const startOfNextMonth = nextMonthStart(mes);
     const [year, monthIdx] = mes.split("-").map(Number);
@@ -250,17 +232,11 @@ export default async function RelatoriosPage({
   const exportParams = new URLSearchParams();
   exportParams.set("tipo", tipo);
   if (accountId) exportParams.set("account_id", accountId);
-  if (inicio) exportParams.set("inicio", inicio);
-  if (fim) exportParams.set("fim", fim);
+  exportParams.set("mes", mes);
 
   const selectedAccount = accountId
     ? (accounts ?? []).find((a) => a.id === accountId)
     : null;
-
-  // Determinar mês atual para o filtro de agendamentos
-  const currentMes = isAgendamentos
-    ? (isValidMonth(searchParams.mes ?? "") ? searchParams.mes! : currentMonthBR())
-    : "";
 
   return (
     <>
@@ -303,49 +279,29 @@ export default async function RelatoriosPage({
               </select>
             </FilterGroup>
             {!isAgendamentos && (
-              <>
-                <FilterGroup label="Conta">
-                  <select
-                    name="account_id"
-                    className="form-select"
-                    defaultValue={accountId}
-                  >
-                    <option value="">Todas</option>
-                    {(accounts ?? []).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nome}
-                      </option>
-                    ))}
-                  </select>
-                </FilterGroup>
-                <FilterGroup label="Data Início">
-                  <input
-                    name="inicio"
-                    type="date"
-                    className="form-input"
-                    defaultValue={inicio}
-                  />
-                </FilterGroup>
-                <FilterGroup label="Data Fim">
-                  <input
-                    name="fim"
-                    type="date"
-                    className="form-input"
-                    defaultValue={fim}
-                  />
-                </FilterGroup>
-              </>
-            )}
-            {isAgendamentos && (
-              <FilterGroup label="Mês de Referência">
-                <input
-                  name="mes"
-                  type="month"
-                  className="form-input"
-                  defaultValue={currentMes}
-                />
+              <FilterGroup label="Conta">
+                <select
+                  name="account_id"
+                  className="form-select"
+                  defaultValue={accountId}
+                >
+                  <option value="">Todas</option>
+                  {(accounts ?? []).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nome}
+                    </option>
+                  ))}
+                </select>
               </FilterGroup>
             )}
+            <FilterGroup label="Competência">
+              <input
+                name="mes"
+                type="month"
+                className="form-input"
+                defaultValue={mes}
+              />
+            </FilterGroup>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" className="btn btn-blue">

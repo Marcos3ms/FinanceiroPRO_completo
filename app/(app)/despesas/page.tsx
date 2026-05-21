@@ -5,7 +5,7 @@ export const metadata = { title: "Despesas - FinanceiroPro" };
 export default function DespesasPage({
   searchParams,
 }: {
-  searchParams: { categoria?: string; inicio?: string; fim?: string };
+  searchParams: { categoria?: string; mes?: string };
 }) {
   return (
     <TransactionsView
