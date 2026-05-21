@@ -209,6 +209,7 @@ function AgendarForm({
           <option value="pix">PIX</option>
           <option value="transferencia">Transferência bancária</option>
           <option value="boleto">Boleto</option>
+          <option value="cartao">Cartão</option>
         </select>
       </FormGroup>
 

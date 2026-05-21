@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Modal from "@/components/ui/Modal";
 import { FormGroup, FormRow } from "@/components/ui/FormField";
@@ -16,6 +16,18 @@ import {
 } from "@/features/common/types";
 import { saveDespesaAction } from "@/features/transactions/actions";
 import { useModals } from "./ModalsProvider";
+
+function parseInputValor(raw: string): number {
+  if (!raw) return 0;
+  const normalized = raw
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[R$]/gi, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const value = Number(normalized);
+  return Number.isFinite(value) && value >= 0 ? value : 0;
+}
 
 function SubmitBtn({
   editing,
@@ -70,11 +82,46 @@ function DespesaForm({
   const needsPaymentDetails =
     paymentMethod === "pix" || paymentMethod === "transferencia";
 
+  // Campos de valor, desconto e acréscimo.
+  // No banco, `valor` guarda o valor final; o campo do formulário usa o valor
+  // base (valor + desconto − acréscimo) para que a edição preserve a composição.
+  const initialDesconto = Number(initial?.desconto ?? 0);
+  const initialAcrescimo = Number(initial?.acrescimo ?? 0);
+  const initialBase = initial
+    ? Number(initial.valor) + initialDesconto - initialAcrescimo
+    : 0;
+  const formatCurrencyInput = (n: number) =>
+    n.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
+  const [valorStr, setValorStr] = useState<string>(
+    initial ? formatCurrencyInput(initialBase) : "",
+  );
+  const [descontoStr, setDescontoStr] = useState<string>(
+    initialDesconto > 0 ? formatCurrencyInput(initialDesconto) : "",
+  );
+  const [acrescimoStr, setAcrescimoStr] = useState<string>(
+    initialAcrescimo > 0 ? formatCurrencyInput(initialAcrescimo) : "",
+  );
+
+  const valorNum = parseInputValor(valorStr);
+  const descontoNum = parseInputValor(descontoStr);
+  const acrescimoNum = parseInputValor(acrescimoStr);
+
+  const valorFinal = useMemo(() => {
+    const result = valorNum - descontoNum + acrescimoNum;
+    return result >= 0 ? result : 0;
+  }, [valorNum, descontoNum, acrescimoNum]);
+
+  const hasAdjustments = descontoNum > 0 || acrescimoNum > 0;
+
   useEffect(() => {
     if (state.ok) {
       formRef.current?.reset();
       setCategoria("");
       setPaymentMethod("");
+      setValorStr("");
+      setDescontoStr("");
+      setAcrescimoStr("");
       onDone();
     }
   }, [state.ok, onDone]);
@@ -112,13 +159,8 @@ function DespesaForm({
             className="form-input"
             placeholder="0,00"
             inputMode="decimal"
-            defaultValue={
-              initial
-                ? initial.valor.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                  })
-                : ""
-            }
+            value={valorStr}
+            onChange={(e) => setValorStr(e.target.value)}
           />
         </FormGroup>
         <FormGroup label="Data" htmlFor="despesa-data">
@@ -132,6 +174,84 @@ function DespesaForm({
           />
         </FormGroup>
       </FormRow>
+
+      {/* Desconto e Acréscimo (não se aplicam a transferências) */}
+      {!isTransferSelected && (
+        <FormRow>
+          <FormGroup label="Desconto (R$)" htmlFor="despesa-desconto">
+            <input
+              id="despesa-desconto"
+              name="desconto"
+              type="text"
+              className="form-input"
+              placeholder="0,00"
+              inputMode="decimal"
+              value={descontoStr}
+              onChange={(e) => setDescontoStr(e.target.value)}
+            />
+          </FormGroup>
+          <FormGroup label="Acréscimo (R$)" htmlFor="despesa-acrescimo">
+            <input
+              id="despesa-acrescimo"
+              name="acrescimo"
+              type="text"
+              className="form-input"
+              placeholder="0,00"
+              inputMode="decimal"
+              value={acrescimoStr}
+              onChange={(e) => setAcrescimoStr(e.target.value)}
+            />
+          </FormGroup>
+        </FormRow>
+      )}
+
+      {/* Preview do valor final */}
+      {!isTransferSelected && hasAdjustments && (
+        <div className="mb-4 rounded-lg border border-border bg-bg-elevated px-4 py-3">
+          <div className="flex items-center justify-between text-[0.8rem]">
+            <span className="text-fg-muted">Valor base:</span>
+            <span className="font-medium text-fg-primary">
+              {valorNum.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </span>
+          </div>
+          {descontoNum > 0 && (
+            <div className="flex items-center justify-between text-[0.8rem]">
+              <span className="text-fg-muted">Desconto:</span>
+              <span className="font-medium text-brand-green">
+                − {descontoNum.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </span>
+            </div>
+          )}
+          {acrescimoNum > 0 && (
+            <div className="flex items-center justify-between text-[0.8rem]">
+              <span className="text-fg-muted">Acréscimo:</span>
+              <span className="font-medium text-brand-red">
+                + {acrescimoNum.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </span>
+            </div>
+          )}
+          <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+            <span className="text-[0.85rem] font-semibold text-fg-primary">
+              Valor final:
+            </span>
+            <span className="text-[1rem] font-bold text-fg-primary">
+              {valorFinal.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </span>
+          </div>
+        </div>
+      )}
 
       {!showTransferFields && (
         <FormGroup label="Conta" htmlFor="despesa-conta">
@@ -172,7 +292,7 @@ function DespesaForm({
         )}
       </FormGroup>
 
-      {!showTransferFields && (
+      {!isTransferSelected && (
         <>
           <FormGroup label="Forma de Pagamento" htmlFor="despesa-pagamento">
             <select
@@ -186,6 +306,7 @@ function DespesaForm({
               <option value="pix">PIX</option>
               <option value="transferencia">Transferência bancária</option>
               <option value="boleto">Boleto</option>
+              <option value="cartao">Cartão</option>
             </select>
           </FormGroup>
 

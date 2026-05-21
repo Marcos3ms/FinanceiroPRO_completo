@@ -49,7 +49,7 @@ export default async function CapaDespesaPage({
     supabase
       .from("transactions")
       .select(
-        "id, type, descricao, valor, data, categoria, payment_method, payment_details, accounts(nome)",
+        "id, type, descricao, valor, data, categoria, desconto, acrescimo, payment_method, payment_details, accounts(nome)",
       )
       .eq("id", params.id)
       .eq("user_id", user.id)
@@ -71,6 +71,7 @@ export default async function CapaDespesaPage({
     pix: "PIX",
     transferencia: "Transferência bancária",
     boleto: "Boleto",
+    cartao: "Cartão",
   };
   const paymentMethodLabel = row.payment_method
     ? (PAYMENT_LABEL[row.payment_method] ?? row.payment_method)
@@ -83,6 +84,12 @@ export default async function CapaDespesaPage({
         : null;
   const showPaymentDetails =
     !!paymentDetailsLabel && !!row.payment_details;
+
+  const desconto = Number(row.desconto ?? 0);
+  const acrescimo = Number(row.acrescimo ?? 0);
+  const valorFinal = Number(row.valor);
+  const valorBase = valorFinal + desconto - acrescimo;
+  const hasAdjustments = desconto > 0 || acrescimo > 0;
 
   const issuedAt = new Date();
 
@@ -141,9 +148,18 @@ export default async function CapaDespesaPage({
                 value={row.payment_details!}
               />
             )}
+            {hasAdjustments && (
+              <Field label="Valor Base" value={formatBRL(valorBase)} />
+            )}
+            {desconto > 0 && (
+              <Field label="Desconto" value={`− ${formatBRL(desconto)}`} />
+            )}
+            {acrescimo > 0 && (
+              <Field label="Acréscimo" value={`+ ${formatBRL(acrescimo)}`} />
+            )}
             <Field
-              label="Valor"
-              value={formatBRL(Number(row.valor))}
+              label={hasAdjustments ? "Valor Final" : "Valor"}
+              value={formatBRL(valorFinal)}
               highlight
             />
           </dl>

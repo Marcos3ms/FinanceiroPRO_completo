@@ -102,6 +102,8 @@ create table if not exists public.transactions (
 alter table public.transactions add column if not exists transfer_id uuid;
 alter table public.transactions add column if not exists payment_method text;
 alter table public.transactions add column if not exists payment_details text;
+alter table public.transactions add column if not exists desconto numeric(14, 2) not null default 0;
+alter table public.transactions add column if not exists acrescimo numeric(14, 2) not null default 0;
 
 create index if not exists transactions_user_id_idx on public.transactions(user_id);
 create index if not exists transactions_user_type_data_idx
@@ -166,3 +168,36 @@ create policy "Schedules are updatable by owner"
 drop policy if exists "Schedules are deletable by owner" on public.schedules;
 create policy "Schedules are deletable by owner"
   on public.schedules for delete using (auth.uid() = user_id);
+
+
+-- ==================== mark_schedule_paid (baixa atômica) ====================
+-- Insere a transação de despesa e marca o agendamento como pago numa única
+-- transação. Evita transação duplicada caso o update falhe após o insert.
+-- security invoker: roda com as permissões do chamador, respeitando a RLS.
+create or replace function public.mark_schedule_paid(p_schedule_id uuid)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  s public.schedules;
+begin
+  select * into s
+    from public.schedules
+    where id = p_schedule_id and user_id = auth.uid();
+
+  if not found or s.paid_at is not null then
+    return;
+  end if;
+
+  insert into public.transactions
+    (user_id, type, descricao, valor, data, categoria,
+     account_id, payment_method, payment_details)
+  values
+    (s.user_id, 'despesa', s.descricao, s.valor, s.vencimento, s.categoria,
+     s.account_id, s.payment_method, s.payment_details);
+
+  update public.schedules set paid_at = now() where id = p_schedule_id;
+end;
+$$;

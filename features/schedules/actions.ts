@@ -5,7 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { parseValor, type ActionState } from "@/features/common/types";
 
 const VALID_FREQ = new Set(["mensal", "semanal", "anual"]);
-const VALID_PAYMENT_METHODS = new Set(["pix", "transferencia", "boleto"]);
+const VALID_PAYMENT_METHODS = new Set([
+  "pix",
+  "transferencia",
+  "boleto",
+  "cartao",
+]);
 
 /** Avança N meses preservando o dia (clipping no último dia quando o mês destino não tem). */
 function addMonths(dateStr: string, monthsToAdd: number): string {
@@ -73,7 +78,8 @@ export async function saveScheduleAction(
     const { error } = await supabase
       .from("schedules")
       .update(payload)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
     if (error) return { error: error.message, ok: false };
   } else if (frequencia === "mensal" && quantidadeMeses > 1) {
     const rows = Array.from({ length: quantidadeMeses }, (_, i) => ({
@@ -99,7 +105,16 @@ export async function deleteScheduleAction(formData: FormData) {
   if (!id) return;
 
   const supabase = createClient();
-  await supabase.from("schedules").delete().eq("id", id);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("schedules")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
   revalidatePath("/", "layout");
 }
 
@@ -108,39 +123,12 @@ export async function markScheduleAsPaidAction(formData: FormData) {
   if (!id) return;
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
 
-  const { data: schedule } = await supabase
-    .from("schedules")
-    .select(
-      "id, descricao, valor, vencimento, categoria, account_id, paid_at, payment_method, payment_details",
-    )
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!schedule || schedule.paid_at) return;
-
-  const { error: insertError } = await supabase.from("transactions").insert({
-    user_id: user.id,
-    type: "despesa",
-    descricao: schedule.descricao,
-    valor: schedule.valor,
-    data: schedule.vencimento,
-    categoria: schedule.categoria,
-    account_id: schedule.account_id,
-    payment_method: schedule.payment_method ?? null,
-    payment_details: schedule.payment_details ?? null,
+  // RPC: insere a despesa e marca o agendamento como pago numa só transação.
+  const { error } = await supabase.rpc("mark_schedule_paid", {
+    p_schedule_id: id,
   });
-  if (insertError) return;
-
-  await supabase
-    .from("schedules")
-    .update({ paid_at: new Date().toISOString() })
-    .eq("id", id);
+  if (error) return;
 
   revalidatePath("/", "layout");
 }

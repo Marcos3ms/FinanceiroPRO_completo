@@ -5,6 +5,7 @@ export const CATEGORIES = [
   "Aluguel impressora",
   "Anuidade conselhos",
   "Assessoria administrativa",
+  "Despesas de escritório",
   "Energia",
   "Folha de pagamento",
   "Funcionários",

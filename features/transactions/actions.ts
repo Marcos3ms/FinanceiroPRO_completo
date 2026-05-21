@@ -6,7 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { parseValor, type ActionState } from "@/features/common/types";
 import { TRANSFER_CATEGORY } from "@/lib/categories";
 
-const VALID_PAYMENT_METHODS = new Set(["pix", "transferencia", "boleto"]);
+const VALID_PAYMENT_METHODS = new Set([
+  "pix",
+  "transferencia",
+  "boleto",
+  "cartao",
+]);
 
 async function saveTransaction(
   type: "receita" | "despesa",
@@ -14,10 +19,21 @@ async function saveTransaction(
 ): Promise<ActionState> {
   const id = String(formData.get("id") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
-  const valor = parseValor(String(formData.get("valor") ?? ""));
+  const valorBruto = parseValor(String(formData.get("valor") ?? ""));
   const data = String(formData.get("data") ?? "");
   const categoria = String(formData.get("categoria") ?? "").trim() || null;
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
+  const isTransfer = categoria === TRANSFER_CATEGORY;
+
+  // Desconto e acréscimo (apenas despesas; não se aplica a transferências)
+  const desconto =
+    type === "despesa" && !isTransfer
+      ? (parseValor(String(formData.get("desconto") ?? "")) ?? 0)
+      : 0;
+  const acrescimo =
+    type === "despesa" && !isTransfer
+      ? (parseValor(String(formData.get("acrescimo") ?? "")) ?? 0)
+      : 0;
 
   const rawPaymentMethod = String(formData.get("payment_method") ?? "").trim();
   const paymentMethod =
@@ -30,9 +46,14 @@ async function saveTransaction(
       : null;
 
   if (!descricao) return { error: "Informe a descrição.", ok: false };
-  if (valor === null || valor <= 0)
+  if (valorBruto === null || valorBruto <= 0)
     return { error: "Informe um valor válido.", ok: false };
   if (!data) return { error: "Informe a data.", ok: false };
+
+  // Calcula valor final aplicando desconto e acréscimo
+  const valor = Math.max(valorBruto - desconto + acrescimo, 0);
+  if (valor <= 0)
+    return { error: "O valor final após desconto/acréscimo deve ser maior que zero.", ok: false };
 
   const supabase = createClient();
   const {
@@ -92,14 +113,45 @@ async function saveTransaction(
     account_id: accountId,
     payment_method: paymentMethod,
     payment_details: paymentDetails,
+    desconto,
+    acrescimo,
   };
 
   if (id) {
-    const { error } = await supabase
+    // Confirma a posse e descobre se o lançamento faz parte de uma transferência.
+    const { data: existing } = await supabase
       .from("transactions")
-      .update(payload)
-      .eq("id", id);
-    if (error) return { error: error.message, ok: false };
+      .select("transfer_id")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!existing) return { error: "Lançamento não encontrado.", ok: false };
+
+    if (existing.transfer_id) {
+      // Transferência: atualiza as duas pernas para mantê-las sincronizadas.
+      // A perna editada também recebe a própria conta; a outra mantém a dela.
+      const { error: selfError } = await supabase
+        .from("transactions")
+        .update({ descricao, valor, data, account_id: accountId })
+        .eq("id", id)
+        .eq("user_id", user.id);
+      if (selfError) return { error: selfError.message, ok: false };
+
+      const { error: pairError } = await supabase
+        .from("transactions")
+        .update({ descricao, valor, data })
+        .eq("transfer_id", existing.transfer_id)
+        .eq("user_id", user.id)
+        .neq("id", id);
+      if (pairError) return { error: pairError.message, ok: false };
+    } else {
+      const { error } = await supabase
+        .from("transactions")
+        .update(payload)
+        .eq("id", id)
+        .eq("user_id", user.id);
+      if (error) return { error: error.message, ok: false };
+    }
   } else {
     const { error } = await supabase
       .from("transactions")
@@ -130,20 +182,31 @@ export async function deleteTransactionAction(formData: FormData) {
   if (!id) return;
 
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
 
   const { data: row } = await supabase
     .from("transactions")
     .select("transfer_id")
     .eq("id", id)
+    .eq("user_id", user.id)
     .maybeSingle();
+  if (!row) return;
 
-  if (row?.transfer_id) {
+  if (row.transfer_id) {
     await supabase
       .from("transactions")
       .delete()
-      .eq("transfer_id", row.transfer_id);
+      .eq("transfer_id", row.transfer_id)
+      .eq("user_id", user.id);
   } else {
-    await supabase.from("transactions").delete().eq("id", id);
+    await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
   }
 
   revalidatePath("/", "layout");

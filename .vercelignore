@@ -4,9 +4,6 @@ node_modules
 .env
 .env.local
 .claude
-/prototipo
-/css
-/js
 /supabase
 Dockerfile
 .dockerignore

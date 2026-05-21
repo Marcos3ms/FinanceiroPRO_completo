@@ -44,7 +44,7 @@ export default async function TransactionsView({
   let query = supabase
     .from("transactions")
     .select(
-      "id, descricao, valor, data, categoria, account_id, transfer_id, accounts(nome)",
+      "id, descricao, valor, data, categoria, account_id, transfer_id, desconto, acrescimo, accounts(nome)",
     )
     .eq("user_id", user.id)
     .eq("type", type)
@@ -183,6 +183,8 @@ export default async function TransactionsView({
                               categoria: t.categoria,
                               account_id: t.account_id,
                               transfer_id: t.transfer_id ?? null,
+                              desconto: Number(t.desconto ?? 0),
+                              acrescimo: Number(t.acrescimo ?? 0),
                             },
                           }}
                         />

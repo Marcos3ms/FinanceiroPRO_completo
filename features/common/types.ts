@@ -9,7 +9,7 @@ export type Account = {
   conta: string | null;
 };
 
-export type PaymentMethod = "pix" | "transferencia" | "boleto";
+export type PaymentMethod = "pix" | "transferencia" | "boleto" | "cartao";
 
 export type Transaction = {
   id: string;
@@ -20,6 +20,8 @@ export type Transaction = {
   categoria: string | null;
   account_id: string | null;
   transfer_id: string | null;
+  desconto?: number;
+  acrescimo?: number;
   payment_method?: PaymentMethod | null;
   payment_details?: string | null;
   account?: { nome: string } | null;

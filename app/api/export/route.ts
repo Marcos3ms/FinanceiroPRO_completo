@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("transactions")
     .select(
-      "id, type, descricao, valor, data, categoria, payment_method, payment_details, accounts(nome)",
+      "id, type, descricao, valor, data, categoria, desconto, acrescimo, payment_method, payment_details, accounts(nome)",
     )
     .eq("user_id", user.id)
     .order("data", { ascending: true })
@@ -47,7 +47,10 @@ export async function GET(req: NextRequest) {
     pix: "PIX",
     transferencia: "Transferência",
     boleto: "Boleto",
+    cartao: "Cartão",
   };
+
+  const fmtNum = (n: number) => n.toFixed(2).replace(".", ",");
 
   const header = [
     "Tipo",
@@ -55,6 +58,9 @@ export async function GET(req: NextRequest) {
     "Categoria",
     "Conta",
     "Data",
+    "Valor Base",
+    "Desconto",
+    "Acréscimo",
     "Valor",
     "Forma de Pagamento",
     "Dados de Pagamento",
@@ -69,6 +75,10 @@ export async function GET(req: NextRequest) {
     const paymentLabel = row.payment_method
       ? (PAYMENT_LABEL[row.payment_method] ?? row.payment_method)
       : "";
+    const desconto = Number(row.desconto ?? 0);
+    const acrescimo = Number(row.acrescimo ?? 0);
+    const valorFinal = Number(row.valor);
+    const valorBase = valorFinal + desconto - acrescimo;
     lines.push(
       [
         row.type,
@@ -76,7 +86,10 @@ export async function GET(req: NextRequest) {
         csvEscape(row.categoria ?? ""),
         csvEscape(accountName),
         row.data,
-        Number(row.valor).toFixed(2).replace(".", ","),
+        fmtNum(valorBase),
+        fmtNum(desconto),
+        fmtNum(acrescimo),
+        fmtNum(valorFinal),
         csvEscape(paymentLabel),
         csvEscape(row.payment_details ?? ""),
       ].join(";"),

@@ -27,6 +27,7 @@ const PAYMENT_LABEL: Record<string, string> = {
   pix: "PIX",
   transferencia: "Transferência",
   boleto: "Boleto",
+  cartao: "Cartão",
 };
 
 export default function Extrato({ rows }: { rows: Row[] }) {
