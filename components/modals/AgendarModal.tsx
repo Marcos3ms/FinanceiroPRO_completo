@@ -60,7 +60,7 @@ function AgendarForm({
     initial?.frequencia ?? "mensal",
   );
   const isEditing = !!initial;
-  const showQuantidade = frequencia === "mensal" && !isEditing;
+  const showQuantidade = frequencia === "mensal";
   const [state, formAction] = useFormState(
     saveScheduleAction,
     initialActionState,

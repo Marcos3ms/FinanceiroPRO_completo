@@ -81,6 +81,20 @@ export async function saveScheduleAction(
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return { error: error.message, ok: false };
+
+    // Ao editar, se a quantidade for > 1, cria os meses adicionais
+    // subsequentes (a partir do mês seguinte ao vencimento atual).
+    if (frequencia === "mensal" && quantidadeMeses > 1) {
+      const extras = Array.from({ length: quantidadeMeses - 1 }, (_, i) => ({
+        ...payload,
+        user_id: user.id,
+        vencimento: addMonths(vencimento, i + 1),
+      }));
+      const { error: extendError } = await supabase
+        .from("schedules")
+        .insert(extras);
+      if (extendError) return { error: extendError.message, ok: false };
+    }
   } else if (frequencia === "mensal" && quantidadeMeses > 1) {
     const rows = Array.from({ length: quantidadeMeses }, (_, i) => ({
       ...payload,
