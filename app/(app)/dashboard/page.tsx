@@ -5,7 +5,7 @@ import HeaderActions from "@/components/layout/HeaderActions";
 import CompanyHeader from "@/components/layout/CompanyHeader";
 import SummaryCard from "@/components/ui/SummaryCard";
 import ChartCard, { EmptyState } from "@/components/ui/ChartCard";
-import FluxoCaixaChart from "@/components/dashboard/FluxoCaixaChart";
+import DespesasPorCategoria from "@/components/reports/DespesasPorCategoria";
 import { createClient } from "@/lib/supabase/server";
 import { formatBRL } from "@/features/common/types";
 
@@ -42,6 +42,20 @@ export default async function DashboardPage() {
     .reduce((sum, t) => sum + Number(t.valor), 0);
   const saldo = totalReceita - totalDespesa;
   const recent = all.slice(-5);
+
+  // Despesas por categoria, ordenadas da maior para a menor (top 8).
+  const despesasPorCategoria = (() => {
+    const map = new Map<string, number>();
+    for (const t of realOnly) {
+      if (t.type !== "despesa") continue;
+      const cat = t.categoria ?? "Sem categoria";
+      map.set(cat, (map.get(cat) ?? 0) + Number(t.valor));
+    }
+    return Array.from(map.entries())
+      .map(([categoria, total]) => ({ categoria, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+  })();
 
   return (
     <>
@@ -80,11 +94,8 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <ChartCard title="Fluxo de Caixa">
-            <FluxoCaixaChart
-              receita={totalReceita}
-              despesa={totalDespesa}
-            />
+          <ChartCard title="Despesas por Categoria">
+            <DespesasPorCategoria data={despesasPorCategoria} />
           </ChartCard>
 
           <ChartCard title="Transações Recentes">
