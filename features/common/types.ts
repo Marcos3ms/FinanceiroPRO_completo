@@ -83,3 +83,10 @@ export function nextMonthStart(mes: string): string {
   const d = new Date(year, month, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
+
+/** Primeiro dia do mês anterior (YYYY-MM-01) a partir de uma competência YYYY-MM. */
+export function prevMonthStart(mes: string): string {
+  const [year, month] = mes.split("-").map(Number);
+  const d = new Date(year, month - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}

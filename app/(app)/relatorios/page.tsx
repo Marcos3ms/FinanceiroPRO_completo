@@ -10,13 +10,14 @@ import Extrato from "@/components/reports/Extrato";
 import AgendamentosRelatorio from "@/components/reports/AgendamentosRelatorio";
 import PrintButton from "@/components/reports/PrintButton";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIES } from "@/lib/categories";
+import { CATEGORIES, SALDO_ANTERIOR_CATEGORY } from "@/lib/categories";
 import {
   formatBRL,
   todayBR,
   currentMonthBR,
   isValidMonth,
   nextMonthStart,
+  prevMonthStart,
 } from "@/features/common/types";
 
 export const metadata = { title: "Relatórios - FinanceiroPro" };
@@ -89,8 +90,13 @@ export default async function RelatoriosPage({
   const isExtrato = tipo === "extrato";
   const isAgendamentos = tipo === "agendamentos";
 
-  const [{ data: profile }, { data: accounts }, { data: filteredRows }, { data: last6Rows }] =
-    await Promise.all([
+  const [
+    { data: profile },
+    { data: accounts },
+    { data: filteredRows },
+    { data: last6Rows },
+    { data: prevSaldoRows },
+  ] = await Promise.all([
       supabase
         .from("profiles")
         .select("company_name, cnpj")
@@ -136,6 +142,28 @@ export default async function RelatoriosPage({
           .eq("user_id", user.id)
           .is("transfer_id", null)
           .gte("data", sinceStr);
+      })(),
+      (() => {
+        // Para o extrato, busca receitas "Saldo anterior" do mês anterior
+        // para que apareçam como abertura no extrato do mês atual.
+        if (!isExtrato) return Promise.resolve({ data: [], error: null });
+        if (categoria && categoria !== SALDO_ANTERIOR_CATEGORY) {
+          return Promise.resolve({ data: [], error: null });
+        }
+        let q = supabase
+          .from("transactions")
+          .select(
+            "id, type, descricao, valor, data, categoria, transfer_id, account_id, payment_method, payment_details, accounts(nome)",
+          )
+          .eq("user_id", user.id)
+          .eq("type", "receita")
+          .eq("categoria", SALDO_ANTERIOR_CATEGORY)
+          .gte("data", prevMonthStart(mes))
+          .lt("data", `${mes}-01`);
+        if (accountId) q = q.eq("account_id", accountId);
+        return q
+          .order("data", { ascending: true })
+          .order("created_at", { ascending: true });
       })(),
     ]);
 
@@ -190,6 +218,19 @@ export default async function RelatoriosPage({
   }
 
   const rows = filteredRows ?? [];
+
+  // Para o extrato: junta o "Saldo anterior" do mês anterior no topo e
+  // remove os "Saldo anterior" do mês corrente (eles vão aparecer no
+  // extrato do próximo mês).
+  const extratoRows = isExtrato
+    ? [
+        ...(prevSaldoRows ?? []),
+        ...rows.filter(
+          (r) =>
+            !(r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY),
+        ),
+      ]
+    : [];
 
   // Despesas por categoria (a partir de filteredRows quando há despesas)
   const despesasPorCategoria = (() => {
@@ -352,7 +393,7 @@ export default async function RelatoriosPage({
           />
         ) : isExtrato ? (
           <Extrato
-            rows={rows.map((r) => ({
+            rows={extratoRows.map((r) => ({
               id: r.id,
               type: r.type,
               descricao: r.descricao,
