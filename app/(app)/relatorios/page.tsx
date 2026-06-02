@@ -10,6 +10,7 @@ import Extrato from "@/components/reports/Extrato";
 import AgendamentosRelatorio from "@/components/reports/AgendamentosRelatorio";
 import PrintButton from "@/components/reports/PrintButton";
 import { createClient } from "@/lib/supabase/server";
+import { CATEGORIES } from "@/lib/categories";
 import {
   formatBRL,
   todayBR,
@@ -23,6 +24,7 @@ export const metadata = { title: "Relatórios - FinanceiroPro" };
 type SP = {
   tipo?: "receitas" | "despesas" | "comparativo" | "extrato" | "agendamentos";
   account_id?: string;
+  categoria?: string;
   mes?: string;
 };
 
@@ -79,6 +81,7 @@ export default async function RelatoriosPage({
 
   const tipo = searchParams.tipo ?? "extrato";
   const accountId = searchParams.account_id ?? "";
+  const categoria = searchParams.categoria ?? "";
   const mes = isValidMonth(searchParams.mes ?? "")
     ? searchParams.mes!
     : currentMonthBR();
@@ -115,6 +118,7 @@ export default async function RelatoriosPage({
         if (tipo === "receitas") q = q.eq("type", "receita");
         else if (tipo === "despesas") q = q.eq("type", "despesa");
         if (accountId) q = q.eq("account_id", accountId);
+        if (categoria) q = q.eq("categoria", categoria);
         q = q.gte("data", `${mes}-01`).lt("data", nextMonthStart(mes));
         return q;
       })(),
@@ -154,15 +158,19 @@ export default async function RelatoriosPage({
     const [year, monthIdx] = mes.split("-").map(Number);
     scheduleMonthLabel = `${MONTH_NAMES_FULL[monthIdx - 1]} de ${year}`;
 
-    const { data: schedulesData } = await supabase
+    let schedulesQuery = supabase
       .from("schedules")
       .select(
         "id, descricao, valor, frequencia, vencimento, categoria, paid_at, account_id, accounts(nome)",
       )
       .eq("user_id", user.id)
       .gte("vencimento", startOfMonth)
-      .lt("vencimento", startOfNextMonth)
-      .order("vencimento", { ascending: true });
+      .lt("vencimento", startOfNextMonth);
+    if (categoria) schedulesQuery = schedulesQuery.eq("categoria", categoria);
+    const { data: schedulesData } = await schedulesQuery.order(
+      "vencimento",
+      { ascending: true },
+    );
 
     scheduleRows = (schedulesData ?? []).map((s) => {
       const accountName = Array.isArray(s.accounts)
@@ -232,6 +240,7 @@ export default async function RelatoriosPage({
   const exportParams = new URLSearchParams();
   exportParams.set("tipo", tipo);
   if (accountId) exportParams.set("account_id", accountId);
+  if (categoria) exportParams.set("categoria", categoria);
   exportParams.set("mes", mes);
 
   const selectedAccount = accountId
@@ -294,6 +303,20 @@ export default async function RelatoriosPage({
                 </select>
               </FilterGroup>
             )}
+            <FilterGroup label="Categoria">
+              <select
+                name="categoria"
+                className="form-select"
+                defaultValue={categoria}
+              >
+                <option value="">Todas</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </FilterGroup>
             <FilterGroup label="Competência">
               <input
                 name="mes"

@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const tipo = params.get("tipo") ?? "todos";
   const accountId = params.get("account_id") ?? "";
+  const categoria = params.get("categoria") ?? "";
   const mes = params.get("mes") ?? "";
 
   let query = supabase
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
   if (tipo === "receitas") query = query.eq("type", "receita");
   else if (tipo === "despesas") query = query.eq("type", "despesa");
   if (accountId) query = query.eq("account_id", accountId);
+  if (categoria) query = query.eq("categoria", categoria);
   if (isValidMonth(mes)) {
     query = query.gte("data", `${mes}-01`).lt("data", nextMonthStart(mes));
   }
