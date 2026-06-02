@@ -1,4 +1,5 @@
 import { formatBRL } from "@/features/common/types";
+import { SALDO_ANTERIOR_CATEGORY } from "@/lib/categories";
 
 type Row = {
   id: string;
@@ -30,12 +31,23 @@ const PAYMENT_LABEL: Record<string, string> = {
   cartao: "Cartão",
 };
 
+function isSaldoAnterior(r: Row): boolean {
+  return r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY;
+}
+
 export default function Extrato({ rows }: { rows: Row[] }) {
   let saldo = 0;
   let totalDebito = 0;
   let totalCredito = 0;
 
-  const enriched = rows.map((r, i) => {
+  // "Saldo anterior" sempre no topo, para entrar como crédito antes
+  // dos demais lançamentos e dar o saldo corrente correto no extrato.
+  const orderedRows = [
+    ...rows.filter(isSaldoAnterior),
+    ...rows.filter((r) => !isSaldoAnterior(r)),
+  ];
+
+  const enriched = orderedRows.map((r, i) => {
     if (r.type === "receita") {
       saldo += r.valor;
       totalCredito += r.valor;
@@ -43,7 +55,8 @@ export default function Extrato({ rows }: { rows: Row[] }) {
       saldo -= r.valor;
       totalDebito += r.valor;
     }
-    const isLastOfDay = i === rows.length - 1 || rows[i + 1].data !== r.data;
+    const isLastOfDay =
+      i === orderedRows.length - 1 || orderedRows[i + 1].data !== r.data;
     return { row: r, runningSaldo: saldo, isLastOfDay };
   });
 

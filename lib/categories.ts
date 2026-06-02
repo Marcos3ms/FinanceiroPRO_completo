@@ -29,6 +29,7 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number];
 
 export const TRANSFER_CATEGORY = "Transferência entre contas";
+export const SALDO_ANTERIOR_CATEGORY = "Saldo anterior";
 
 export const DESPESA_CATEGORY_OPTIONS = [
   ...CATEGORIES,
