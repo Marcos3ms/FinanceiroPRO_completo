@@ -7,6 +7,7 @@
 @layer base {
   :root {
     /* Tema escuro (padrão) */
+    color-scheme: dark;
     --c-bg-primary: #0b1120;
     --c-bg-secondary: #0f172a;
     --c-bg-card: #111827;
@@ -26,6 +27,7 @@
   }
 
   html.light {
+    color-scheme: light;
     --c-bg-primary: #f1f5f9;
     --c-bg-secondary: #ffffff;
     --c-bg-card: #ffffff;
