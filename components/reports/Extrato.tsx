@@ -61,7 +61,7 @@ export default function Extrato({ rows }: { rows: Row[] }) {
   });
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-bg-card print:overflow-visible">
+    <div className="overflow-x-auto rounded-lg border border-border bg-bg-card print:overflow-visible print:border-0 print:rounded-none">
       <div className="px-6 pb-4 pt-6">
         <h2 className="mb-1 text-[1.1rem] font-semibold text-fg-primary">
           Extrato da Movimentação

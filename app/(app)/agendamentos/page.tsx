@@ -105,7 +105,7 @@ export default async function AgendamentosPage({
       />
 
       <section className="px-4 pb-8 sm:px-8">
-        <div className="overflow-x-auto rounded-lg border border-border bg-bg-card print:overflow-visible">
+        <div className="overflow-x-auto rounded-lg border border-border bg-bg-card print:overflow-visible print:border-0 print:rounded-none">
           <div className="flex flex-wrap items-start justify-between gap-4 px-6 pb-4 pt-6">
             <div>
               <h2 className="mb-1 text-[1.1rem] font-semibold text-fg-primary">
