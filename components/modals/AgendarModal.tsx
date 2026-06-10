@@ -14,6 +14,28 @@ import {
 import { saveScheduleAction } from "@/features/schedules/actions";
 import { useModals } from "./ModalsProvider";
 
+const PAYMENT_DETAIL_FIELD: Record<
+  string,
+  { label: string; placeholder: string }
+> = {
+  pix: {
+    label: "Chave PIX",
+    placeholder: "CPF, CNPJ, e-mail, telefone ou chave aleatória",
+  },
+  transferencia: {
+    label: "Dados bancários",
+    placeholder: "Banco, agência, conta e titular",
+  },
+  boleto: {
+    label: "Identificação do boleto",
+    placeholder: "Banco emissor, número, beneficiário",
+  },
+  cartao: {
+    label: "Identificação do cartão",
+    placeholder: "Bandeira, final do número, titular",
+  },
+};
+
 const REMINDERS = [
   "No dia",
   "1 dia antes",
@@ -54,8 +76,9 @@ function AgendarForm({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     initial?.payment_method ?? "",
   );
-  const needsPaymentDetails =
-    paymentMethod === "pix" || paymentMethod === "transferencia";
+  const detailField = paymentMethod
+    ? (PAYMENT_DETAIL_FIELD[paymentMethod] ?? null)
+    : null;
   const [frequencia, setFrequencia] = useState<string>(
     initial?.frequencia ?? "mensal",
   );
@@ -213,9 +236,9 @@ function AgendarForm({
         </select>
       </FormGroup>
 
-      {needsPaymentDetails && (
+      {detailField && (
         <FormGroup
-          label={paymentMethod === "pix" ? "Chave PIX" : "Dados bancários"}
+          label={detailField.label}
           htmlFor="agendar-pagamento-detalhes"
         >
           <input
@@ -223,11 +246,7 @@ function AgendarForm({
             name="payment_details"
             type="text"
             className="form-input"
-            placeholder={
-              paymentMethod === "pix"
-                ? "CPF, CNPJ, e-mail, telefone ou chave aleatória"
-                : "Banco, agência, conta e titular"
-            }
+            placeholder={detailField.placeholder}
             defaultValue={initial?.payment_details ?? ""}
           />
         </FormGroup>

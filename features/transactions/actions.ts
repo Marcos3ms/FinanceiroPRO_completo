@@ -40,10 +40,9 @@ async function saveTransaction(
     type === "despesa" && VALID_PAYMENT_METHODS.has(rawPaymentMethod)
       ? rawPaymentMethod
       : null;
-  const paymentDetails =
-    paymentMethod === "pix" || paymentMethod === "transferencia"
-      ? String(formData.get("payment_details") ?? "").trim() || null
-      : null;
+  const paymentDetails = paymentMethod
+    ? String(formData.get("payment_details") ?? "").trim() || null
+    : null;
 
   if (!descricao) return { error: "Informe a descrição.", ok: false };
   if (valorBruto === null || valorBruto <= 0)

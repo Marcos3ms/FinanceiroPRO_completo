@@ -17,6 +17,28 @@ import {
 import { saveDespesaAction } from "@/features/transactions/actions";
 import { useModals } from "./ModalsProvider";
 
+const PAYMENT_DETAIL_FIELD: Record<
+  string,
+  { label: string; placeholder: string }
+> = {
+  pix: {
+    label: "Chave PIX",
+    placeholder: "CPF, CNPJ, e-mail, telefone ou chave aleatória",
+  },
+  transferencia: {
+    label: "Dados bancários",
+    placeholder: "Banco, agência, conta e titular",
+  },
+  boleto: {
+    label: "Identificação do boleto",
+    placeholder: "Banco emissor, número, beneficiário",
+  },
+  cartao: {
+    label: "Identificação do cartão",
+    placeholder: "Bandeira, final do número, titular",
+  },
+};
+
 function parseInputValor(raw: string): number {
   if (!raw) return 0;
   const normalized = raw
@@ -79,8 +101,9 @@ function DespesaForm({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     initial?.payment_method ?? "",
   );
-  const needsPaymentDetails =
-    paymentMethod === "pix" || paymentMethod === "transferencia";
+  const detailField = paymentMethod
+    ? (PAYMENT_DETAIL_FIELD[paymentMethod] ?? null)
+    : null;
 
   // Campos de valor, desconto e acréscimo.
   // No banco, `valor` guarda o valor final; o campo do formulário usa o valor
@@ -310,11 +333,9 @@ function DespesaForm({
             </select>
           </FormGroup>
 
-          {needsPaymentDetails && (
+          {detailField && (
             <FormGroup
-              label={
-                paymentMethod === "pix" ? "Chave PIX" : "Dados bancários"
-              }
+              label={detailField.label}
               htmlFor="despesa-pagamento-detalhes"
             >
               <input
@@ -322,11 +343,7 @@ function DespesaForm({
                 name="payment_details"
                 type="text"
                 className="form-input"
-                placeholder={
-                  paymentMethod === "pix"
-                    ? "CPF, CNPJ, e-mail, telefone ou chave aleatória"
-                    : "Banco, agência, conta e titular"
-                }
+                placeholder={detailField.placeholder}
                 defaultValue={initial?.payment_details ?? ""}
               />
             </FormGroup>

@@ -39,10 +39,9 @@ export async function saveScheduleAction(
   const paymentMethod = VALID_PAYMENT_METHODS.has(rawPaymentMethod)
     ? rawPaymentMethod
     : null;
-  const paymentDetails =
-    paymentMethod === "pix" || paymentMethod === "transferencia"
-      ? String(formData.get("payment_details") ?? "").trim() || null
-      : null;
+  const paymentDetails = paymentMethod
+    ? String(formData.get("payment_details") ?? "").trim() || null
+    : null;
   const quantidadeMesesRaw = Number(formData.get("quantidade_meses") ?? 1);
   const quantidadeMeses =
     Number.isFinite(quantidadeMesesRaw) && quantidadeMesesRaw >= 1
