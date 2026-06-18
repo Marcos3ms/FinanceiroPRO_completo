@@ -11,24 +11,38 @@ export default function CompanyHeader({ companyName, cnpj, mode }: Props) {
   const visibility =
     mode === "print" ? "hidden print:block" : "block print:hidden";
 
+  if (mode === "print") {
+    return (
+      <div className={`${visibility} mb-6 text-center px-6 pt-2 pb-4`}>
+        {companyName && (
+          <h2 className="font-display text-[1.3rem] font-semibold text-fg-primary">
+            {companyName}
+          </h2>
+        )}
+        {cnpj && (
+          <p className="mt-1 text-[0.78rem] text-fg-secondary">CNPJ: {cnpj}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`${visibility} text-center mb-6 ${
-        mode === "screen"
-          ? "rounded-lg border border-border bg-bg-card px-6 py-5"
-          : "px-6 pt-2 pb-4"
-      }`}
+      className={`${visibility} mb-6 flex items-center justify-between gap-4 border-l-2 border-accent bg-bg-card px-5 py-4`}
     >
-      {companyName && (
-        <h2 className="text-[1.4rem] font-bold uppercase tracking-wider text-brand-blue">
-          {companyName}
-        </h2>
-      )}
-      {cnpj && (
-        <p className="mt-1 text-[0.85rem] font-semibold uppercase tracking-wider text-brand-blue">
-          CNPJ: {cnpj}
-        </p>
-      )}
+      <div className="min-w-0">
+        {companyName && (
+          <div className="font-display text-[1.05rem] font-medium text-fg-primary">
+            {companyName}
+          </div>
+        )}
+        {cnpj && (
+          <div className="num-mono mt-0.5 text-[0.72rem] text-fg-muted">
+            CNPJ {cnpj}
+          </div>
+        )}
+      </div>
+      <div className="eyebrow shrink-0 text-accent">Conta ativa</div>
     </div>
   );
 }

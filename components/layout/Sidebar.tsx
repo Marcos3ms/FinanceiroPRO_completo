@@ -51,7 +51,7 @@ export default function Sidebar({
         type="button"
         aria-label="Abrir menu"
         onClick={() => setOpen(true)}
-        className="fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded border border-border bg-bg-card text-fg-muted md:hidden print:hidden"
+        className="fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-sm border border-border bg-bg-card text-fg-muted md:hidden print:hidden"
       >
         <Menu className="h-[18px] w-[18px]" />
       </button>
@@ -69,9 +69,14 @@ export default function Sidebar({
         }`}
       >
         <div className="flex items-center gap-2.5 px-5 pb-6 pt-5">
-          <span className="text-[1.15rem] font-bold tracking-tight text-brand-green">
-            FinanceiroPro
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-[1.05rem] font-semibold tracking-tight text-fg-primary">
+              Financeiro
+            </span>
+            <span className="font-display text-[1.05rem] font-semibold tracking-tight text-accent">
+              Pro
+            </span>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <ThemeIcon />
             <button
@@ -85,7 +90,8 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-3">
+        <div className="eyebrow px-5 pb-2">Navegação</div>
+        <nav className="flex flex-1 flex-col gap-0.5 px-3">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
@@ -93,13 +99,16 @@ export default function Sidebar({
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 rounded px-4 py-3 text-[0.925rem] font-medium transition-all ${
+                className={`relative flex items-center gap-3 rounded-sm px-3 py-2.5 text-[0.875rem] font-medium transition-colors ${
                   active
-                    ? "bg-brand-blue text-white shadow-blue-glow"
+                    ? "bg-accent-bg text-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[2px] before:bg-accent"
                     : "text-fg-secondary hover:bg-bg-elevated hover:text-fg-primary"
                 }`}
               >
-                <Icon className="h-5 w-5 flex-shrink-0" />
+                <Icon
+                  className="h-[18px] w-[18px] flex-shrink-0"
+                  strokeWidth={active ? 2 : 1.5}
+                />
                 {label}
               </Link>
             );
@@ -107,22 +116,24 @@ export default function Sidebar({
         </nav>
 
         <div className="flex items-center gap-3 border-t border-border px-5 py-4">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-blue text-sm font-semibold text-white">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm bg-accent text-sm font-semibold text-accent-ink">
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-fg-primary">
+            <div className="truncate text-[0.85rem] font-medium text-fg-primary">
               {displayName}
             </div>
-            <div className="truncate text-xs text-fg-muted">{email}</div>
+            <div className="num-mono truncate text-[0.7rem] text-fg-muted">
+              {email}
+            </div>
           </div>
           <form action={logoutAction}>
             <button
               type="submit"
               title="Sair"
-              className="flex items-center p-1 text-fg-muted transition-colors hover:text-brand-red"
+              className="flex items-center p-1 text-fg-muted transition-colors hover:text-debit"
             >
-              <LogOut className="h-[18px] w-[18px]" />
+              <LogOut className="h-[17px] w-[17px]" />
             </button>
           </form>
         </div>

@@ -10,11 +10,24 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: [
-          "Inter",
+          "var(--font-sans)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "sans-serif",
+        ],
+        display: [
+          "var(--font-geist-sans)",
+          "var(--font-sans)",
+          "-apple-system",
+          "sans-serif",
+        ],
+        mono: [
+          "var(--font-mono)",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "monospace",
         ],
       },
       colors: {
@@ -36,39 +49,63 @@ const config: Config = {
           muted: "var(--c-fg-muted)",
           label: "var(--c-fg-label)",
         },
+        // Tokens semânticos contábeis — uso preferido em código novo.
+        credit: {
+          DEFAULT: "var(--c-credit)",
+          hover: "var(--c-credit-hover)",
+          bg: "var(--c-credit-bg)",
+          border: "var(--c-credit-border)",
+        },
+        debit: {
+          DEFAULT: "var(--c-debit)",
+          hover: "var(--c-debit-hover)",
+          bg: "var(--c-debit-bg)",
+          border: "var(--c-debit-border)",
+        },
+        accent: {
+          DEFAULT: "var(--c-accent)",
+          hover: "var(--c-accent-hover)",
+          bg: "var(--c-accent-bg)",
+          border: "var(--c-accent-border)",
+          ink: "var(--c-accent-ink)",
+        },
+        // Aliases de compatibilidade: classes brand-* legadas mapeadas para os tokens Ledger.
+        // (green→credit, red→debit, blue→accent.) Permite migrar telas gradualmente.
         brand: {
-          green: "#10b981",
-          "green-hover": "#059669",
-          "green-bg": "var(--c-green-bg)",
-          "green-border": "rgba(16,185,129,0.3)",
-          red: "#ef4444",
-          "red-hover": "#dc2626",
-          "red-bg": "var(--c-red-bg)",
-          "red-border": "rgba(239,68,68,0.3)",
-          blue: "#3b82f6",
-          "blue-hover": "#2563eb",
-          "blue-bg": "var(--c-blue-bg)",
-          "blue-border": "rgba(59,130,246,0.3)",
+          green: "var(--c-credit)",
+          "green-hover": "var(--c-credit-hover)",
+          "green-bg": "var(--c-credit-bg)",
+          "green-border": "var(--c-credit-border)",
+          red: "var(--c-debit)",
+          "red-hover": "var(--c-debit-hover)",
+          "red-bg": "var(--c-debit-bg)",
+          "red-border": "var(--c-debit-border)",
+          blue: "var(--c-accent)",
+          "blue-hover": "var(--c-accent-hover)",
+          "blue-bg": "var(--c-accent-bg)",
+          "blue-border": "var(--c-accent-border)",
         },
       },
       borderRadius: {
-        sm: "6px",
-        DEFAULT: "10px",
-        lg: "14px",
+        sm: "3px",
+        DEFAULT: "4px",
+        lg: "6px",
       },
       boxShadow: {
-        card: "0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2)",
+        // Sombras mais contidas — superfícies se distinguem por hairlines, não por elevação dramática.
+        card: "0 1px 0 0 rgba(0,0,0,0.25)",
         modal:
-          "0 10px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.3)",
-        "green-glow": "0 4px 12px rgba(16,185,129,0.3)",
-        "red-glow": "0 4px 12px rgba(239,68,68,0.3)",
-        "blue-glow": "0 2px 8px rgba(59,130,246,0.35)",
+          "0 16px 40px -12px rgba(0,0,0,0.55), 0 4px 12px -4px rgba(0,0,0,0.3)",
+        // Glows neutralizados — não usar em código novo.
+        "green-glow": "none",
+        "red-glow": "none",
+        "blue-glow": "none",
       },
       width: {
-        sidebar: "260px",
+        sidebar: "240px",
       },
       spacing: {
-        sidebar: "260px",
+        sidebar: "240px",
       },
     },
   },

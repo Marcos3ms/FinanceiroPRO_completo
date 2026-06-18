@@ -1,49 +1,86 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Tema escuro (padrão) */
+    /* Tema escuro — Ledger (padrão). Tinta, papel preto-quente, contábil clássico. */
     color-scheme: dark;
-    --c-bg-primary: #0b1120;
-    --c-bg-secondary: #0f172a;
-    --c-bg-card: #111827;
-    --c-bg-elevated: #1e293b;
-    --c-bg-input: #0f172a;
-    --c-bg-overlay: rgba(0, 0, 0, 0.6);
-    --c-border: #1e293b;
-    --c-border-accent: #2d3a52;
-    --c-fg-primary: #f1f5f9;
-    --c-fg-secondary: #94a3b8;
-    --c-fg-muted: #64748b;
-    --c-fg-label: #cbd5e1;
-    --c-green-bg: rgba(16, 185, 129, 0.12);
-    --c-red-bg: rgba(239, 68, 68, 0.12);
-    --c-blue-bg: rgba(59, 130, 246, 0.15);
-    --c-select-chevron: "%2394a3b8";
+
+    /* Superfícies */
+    --c-bg-primary: #0f1115; /* fundo principal (preto-tinta, leve calor) */
+    --c-bg-secondary: #12151b; /* sidebar / faixas */
+    --c-bg-card: #161a20; /* superfície elevada */
+    --c-bg-elevated: #1c212a; /* hover / estados ativos */
+    --c-bg-input: #12151b;
+    --c-bg-overlay: rgba(0, 0, 0, 0.66);
+
+    /* Hairlines */
+    --c-border: #232830;
+    --c-border-accent: #2d3441;
+
+    /* Tipografia */
+    --c-fg-primary: #e8eaed; /* off-white, nunca puro */
+    --c-fg-secondary: #9aa3ad;
+    --c-fg-muted: #6b7480;
+    --c-fg-label: #b7bec7;
+
+    /* Semânticas contábeis */
+    --c-credit: #6e9f5c; /* verde-pinho (entradas) */
+    --c-credit-hover: #5b8a4b;
+    --c-credit-bg: rgba(110, 159, 92, 0.12);
+    --c-credit-border: rgba(110, 159, 92, 0.32);
+
+    --c-debit: #a24e48; /* vinho-tinta (saídas) */
+    --c-debit-hover: #8b3f3a;
+    --c-debit-bg: rgba(162, 78, 72, 0.14);
+    --c-debit-border: rgba(162, 78, 72, 0.32);
+
+    --c-accent: #c9a86a; /* ouro fosco (ações primárias, seleção) */
+    --c-accent-hover: #b39255;
+    --c-accent-bg: rgba(201, 168, 106, 0.13);
+    --c-accent-border: rgba(201, 168, 106, 0.34);
+    --c-accent-ink: #0f1115; /* texto sobre accent (botão dourado) */
+
+    --c-select-chevron: "%239aa3ad";
   }
 
   html.light {
+    /* Tema claro — papel-creme / tinta. Espelha o Ledger. */
     color-scheme: light;
-    --c-bg-primary: #f1f5f9;
+
+    --c-bg-primary: #f6f4ee; /* papel-creme suave */
     --c-bg-secondary: #ffffff;
     --c-bg-card: #ffffff;
-    --c-bg-elevated: #f1f5f9;
+    --c-bg-elevated: #efece4;
     --c-bg-input: #ffffff;
-    --c-bg-overlay: rgba(15, 23, 42, 0.45);
-    --c-border: #e2e8f0;
-    --c-border-accent: #cbd5e1;
-    --c-fg-primary: #0f172a;
-    --c-fg-secondary: #475569;
-    --c-fg-muted: #64748b;
-    --c-fg-label: #334155;
-    --c-green-bg: rgba(16, 185, 129, 0.18);
-    --c-red-bg: rgba(239, 68, 68, 0.18);
-    --c-blue-bg: rgba(59, 130, 246, 0.18);
-    --c-select-chevron: "%2364748b";
+    --c-bg-overlay: rgba(15, 17, 21, 0.42);
+
+    --c-border: #e2dfd6;
+    --c-border-accent: #c9c4b7;
+
+    --c-fg-primary: #0f1115;
+    --c-fg-secondary: #4a5058;
+    --c-fg-muted: #6b7480;
+    --c-fg-label: #2a2f37;
+
+    --c-credit: #4d7a3f; /* mais saturado em fundo claro */
+    --c-credit-hover: #3d6432;
+    --c-credit-bg: rgba(77, 122, 63, 0.12);
+    --c-credit-border: rgba(77, 122, 63, 0.32);
+
+    --c-debit: #8a3e39;
+    --c-debit-hover: #6f312c;
+    --c-debit-bg: rgba(138, 62, 57, 0.12);
+    --c-debit-border: rgba(138, 62, 57, 0.32);
+
+    --c-accent: #9a7d3e; /* ouro mais sóbrio em claro */
+    --c-accent-hover: #826828;
+    --c-accent-bg: rgba(154, 125, 62, 0.14);
+    --c-accent-border: rgba(154, 125, 62, 0.34);
+    --c-accent-ink: #ffffff;
+
+    --c-select-chevron: "%236b7480";
   }
 
   *,
@@ -58,12 +95,18 @@
   }
 
   body {
-    background-color: theme("colors.bg.primary");
-    color: theme("colors.fg.primary");
-    font-family: theme("fontFamily.sans");
-    line-height: 1.6;
+    background-color: var(--c-bg-primary);
+    color: var(--c-fg-primary);
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+    /* Tabular figures + alinhamento de cifras: número exibido em coluna alinha. */
+    font-feature-settings: "tnum" 1, "lnum" 1, "ss01" 1, "cv11" 1;
+    font-variant-numeric: tabular-nums lining-nums;
+    line-height: 1.55;
     min-height: 100vh;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ul,
@@ -75,20 +118,48 @@
     font-family: inherit;
     color: inherit;
   }
+
+  /* Foco visível sempre — qualidade de base que o Ledger pede. */
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-2 rounded px-5 py-2.5 text-sm font-semibold whitespace-nowrap transition-all;
+    @apply inline-flex items-center gap-2 rounded-sm px-4 py-2 text-[0.85rem] font-medium tracking-wide whitespace-nowrap transition-colors;
   }
   .btn-green {
-    @apply bg-brand-green text-white hover:bg-brand-green-hover hover:shadow-green-glow;
+    background-color: var(--c-credit);
+    color: #ffffff;
+  }
+  .btn-green:hover {
+    background-color: var(--c-credit-hover);
   }
   .btn-red {
-    @apply bg-brand-red text-white hover:bg-brand-red-hover hover:shadow-red-glow;
+    background-color: var(--c-debit);
+    color: #ffffff;
+  }
+  .btn-red:hover {
+    background-color: var(--c-debit-hover);
   }
   .btn-blue {
-    @apply bg-brand-blue text-white hover:bg-brand-blue-hover;
+    background-color: var(--c-accent);
+    color: var(--c-accent-ink);
+  }
+  .btn-blue:hover {
+    background-color: var(--c-accent-hover);
   }
   .btn-outline {
     @apply border border-border text-fg-primary hover:border-fg-muted hover:bg-bg-elevated;
@@ -100,28 +171,52 @@
     @apply w-full justify-center;
   }
   .btn-lg {
-    @apply px-6 py-3.5 text-[0.95rem];
+    @apply px-5 py-3 text-[0.9rem];
   }
 
   .icon-btn {
-    @apply flex h-10 w-10 items-center justify-center rounded border border-border text-fg-muted transition-all hover:border-fg-muted hover:text-fg-primary;
+    @apply flex h-9 w-9 items-center justify-center rounded-sm border border-border text-fg-muted transition-colors hover:border-fg-muted hover:text-fg-primary;
   }
 
   .form-input,
   .form-select {
-    @apply w-full rounded border border-border bg-bg-input px-3.5 py-2.5 text-[0.9rem] text-fg-primary outline-none transition-colors focus:border-brand-blue;
+    @apply w-full rounded-sm border border-border bg-bg-input px-3 py-2.5 text-[0.9rem] text-fg-primary outline-none transition-colors;
+  }
+  .form-input:focus,
+  .form-select:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 1px var(--c-accent);
   }
   .form-input::placeholder {
-    color: theme("colors.fg.muted");
+    color: var(--c-fg-muted);
   }
   .form-select {
     appearance: none;
     -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M4.646 5.646a.5.5 0 0 1 .708 0L8 8.293l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239aa3ad' viewBox='0 0 16 16'%3E%3Cpath d='M4.646 5.646a.5.5 0 0 1 .708 0L8 8.293l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 36px;
     cursor: pointer;
+  }
+
+  /* Tag de eyebrow em caps com kerning — usado em headers para dar peso editorial. */
+  .eyebrow {
+    @apply text-[0.7rem] font-semibold uppercase text-fg-muted;
+    letter-spacing: 0.14em;
+  }
+
+  /* Números em monoespaçado quando precisamos de peso visual diferente. */
+  .num-mono {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo,
+      monospace;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+
+  /* Display typeface — para títulos e KPIs grandes. */
+  .font-display {
+    font-family: var(--font-geist-sans), var(--font-sans), -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 }
 
@@ -132,18 +227,21 @@
     --c-bg-primary: #ffffff;
     --c-bg-secondary: #ffffff;
     --c-bg-card: #ffffff;
-    --c-bg-elevated: #f1f5f9;
+    --c-bg-elevated: #f4f1ea;
     --c-bg-input: #ffffff;
-    --c-bg-overlay: rgba(15, 23, 42, 0.45);
-    --c-border: #cbd5e1;
-    --c-border-accent: #94a3b8;
-    --c-fg-primary: #000000;
-    --c-fg-secondary: #1f2937;
-    --c-fg-muted: #475569;
-    --c-fg-label: #1f2937;
-    --c-green-bg: rgba(16, 185, 129, 0.12);
-    --c-red-bg: rgba(239, 68, 68, 0.12);
-    --c-blue-bg: rgba(59, 130, 246, 0.15);
+    --c-bg-overlay: rgba(15, 17, 21, 0.42);
+    --c-border: #c9c4b7;
+    --c-border-accent: #9a9486;
+    --c-fg-primary: #0f1115;
+    --c-fg-secondary: #2a2f37;
+    --c-fg-muted: #4a5058;
+    --c-fg-label: #2a2f37;
+    --c-credit: #3d6432;
+    --c-debit: #6f312c;
+    --c-accent: #826828;
+    --c-credit-bg: rgba(77, 122, 63, 0.10);
+    --c-debit-bg: rgba(138, 62, 57, 0.10);
+    --c-accent-bg: rgba(154, 125, 62, 0.10);
   }
   * {
     -webkit-print-color-adjust: exact !important;
@@ -154,15 +252,12 @@
   }
   body {
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #0f1115 !important;
     overflow-x: visible !important;
   }
-  /* Permite que o conteúdo (tabelas largas) caiba e quebre na impressão. */
   main {
     min-width: 0 !important;
   }
-  /* Tabelas compactas para caber na largura do papel sem ultrapassar
-     as bordas do card. */
   table {
     table-layout: auto;
     width: 100% !important;
@@ -173,18 +268,13 @@
     font-size: 9.5pt !important;
     line-height: 1.3 !important;
   }
-  /* Quebra textos longos (descrições) apenas como último recurso,
-     sem cortar números/valores no meio. */
   table td {
     overflow-wrap: break-word;
   }
-  /* Valores monetários e demais colunas alinhadas à direita não devem
-     quebrar (ex: R$ 1.000,00 inteiro). */
   table th.text-right,
   table td.text-right {
     white-space: nowrap;
   }
-  /* Badges de status (Pendente, Atrasado, etc.) não devem quebrar. */
   table td .inline-flex,
   table td .rounded-full {
     white-space: nowrap;

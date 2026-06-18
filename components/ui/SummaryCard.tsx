@@ -2,54 +2,51 @@ import { type LucideIcon } from "lucide-react";
 
 type Variant = "green" | "red" | "blue";
 
-const variants: Record<
-  Variant,
-  { bar: string; iconBg: string; iconColor: string }
-> = {
-  green: {
-    bar: "before:bg-brand-green",
-    iconBg: "bg-brand-green-bg",
-    iconColor: "text-brand-green",
-  },
-  red: {
-    bar: "before:bg-brand-red",
-    iconBg: "bg-brand-red-bg",
-    iconColor: "text-brand-red",
-  },
-  blue: {
-    bar: "before:bg-brand-blue",
-    iconBg: "bg-brand-blue-bg",
-    iconColor: "text-brand-blue",
-  },
+const variantStrip: Record<Variant, string> = {
+  green: "bg-credit",
+  red: "bg-debit",
+  blue: "bg-accent",
+};
+
+const variantValue: Record<Variant, string> = {
+  green: "text-credit",
+  red: "text-debit",
+  blue: "text-accent",
 };
 
 export default function SummaryCard({
   label,
   value,
-  icon: Icon,
+  icon: _icon,
   variant,
 }: {
   label: string;
   value: string;
-  icon: LucideIcon;
+  /** Aceito para compatibilidade — ignorado no Ledger (número é a informação). */
+  icon?: LucideIcon;
   variant: Variant;
 }) {
-  const v = variants[variant];
   return (
-    <div
-      className={`relative overflow-hidden rounded-lg border border-border bg-bg-card p-6 before:absolute before:inset-y-0 before:left-0 before:w-1 ${v.bar}`}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
-          {label}
+    <div className="relative overflow-hidden border border-border bg-bg-card px-5 py-4">
+      <span
+        aria-hidden
+        className={`absolute left-0 top-4 h-5 w-[2px] ${variantStrip[variant]}`}
+      />
+      <div className="eyebrow">{label}</div>
+      <div className="mt-3 flex items-baseline gap-1.5">
+        <span className={`text-[0.7rem] font-medium ${variantValue[variant]} opacity-70`}>
+          R$
         </span>
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded ${v.iconBg} ${v.iconColor}`}
+        <span
+          className={`font-display text-[1.7rem] font-medium leading-none tracking-tight tabular-nums ${variantValue[variant]}`}
         >
-          <Icon className="h-5 w-5" />
-        </div>
+          {stripBRL(value)}
+        </span>
       </div>
-      <div className="text-2xl font-bold text-fg-primary">{value}</div>
     </div>
   );
+}
+
+function stripBRL(value: string): string {
+  return value.replace(/^R\$\s?/, "").trim();
 }
