@@ -221,9 +221,14 @@
 }
 
 @media print {
+  /* Força o tema claro no print, mesmo quando o usuário está navegando em dark.
+     `color-scheme: light` impede que o navegador renderize bordas, scrollbars
+     e margens nativas (canvas) em tom escuro. */
   :root,
   html,
   html.light {
+    color-scheme: light !important;
+
     --c-bg-primary: #ffffff;
     --c-bg-secondary: #ffffff;
     --c-bg-card: #ffffff;
@@ -247,13 +252,18 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  .no-print {
-    display: none !important;
-  }
+  /* Garante que o html (canvas do navegador) e o body fiquem brancos —
+     evita "molduras" escuras vindas do tema dark. */
+  html,
   body {
     background: #ffffff !important;
     color: #0f1115 !important;
+  }
+  body {
     overflow-x: visible !important;
+  }
+  .no-print {
+    display: none !important;
   }
   main {
     min-width: 0 !important;
