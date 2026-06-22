@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isValidMonth, nextMonthStart } from "@/features/common/types";
+import {
+  isValidMonth,
+  isValidDate,
+  nextMonthStart,
+  nextDay,
+} from "@/features/common/types";
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -23,6 +28,14 @@ export async function GET(req: NextRequest) {
   const accountId = params.get("account_id") ?? "";
   const categoria = params.get("categoria") ?? "";
   const mes = params.get("mes") ?? "";
+  const periodo = params.get("periodo") ?? "";
+  const inicio = params.get("inicio") ?? "";
+  const fim = params.get("fim") ?? "";
+  const isCustomPeriod =
+    periodo === "personalizado" &&
+    isValidDate(inicio) &&
+    isValidDate(fim) &&
+    inicio <= fim;
 
   let query = supabase
     .from("transactions")
@@ -37,7 +50,9 @@ export async function GET(req: NextRequest) {
   else if (tipo === "despesas") query = query.eq("type", "despesa");
   if (accountId) query = query.eq("account_id", accountId);
   if (categoria) query = query.eq("categoria", categoria);
-  if (isValidMonth(mes)) {
+  if (isCustomPeriod) {
+    query = query.gte("data", inicio).lt("data", nextDay(fim));
+  } else if (isValidMonth(mes)) {
     query = query.gte("data", `${mes}-01`).lt("data", nextMonthStart(mes));
   }
 

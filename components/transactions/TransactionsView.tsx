@@ -17,11 +17,25 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { deleteTransactionAction } from "@/features/transactions/actions";
 
-const VISIBLE_COLUMNS = ["Conta", "Descrição", "Categoria", "Data", "Valor"];
+const VISIBLE_COLUMNS = [
+  "Conta",
+  "Descrição",
+  "Categoria",
+  "Pagamento",
+  "Data",
+  "Valor",
+];
 const ACTIONS_LABEL = "Ações";
 const TOTAL_COLUMNS = VISIBLE_COLUMNS.length + 1;
 const HEADER_TH =
   "border-b border-border bg-bg-elevated px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-fg-muted";
+
+const PAYMENT_LABEL: Record<string, string> = {
+  pix: "PIX",
+  transferencia: "Transferência",
+  boleto: "Boleto",
+  cartao: "Cartão",
+};
 
 type SearchParams = {
   categoria?: string;
@@ -52,7 +66,7 @@ export default async function TransactionsView({
   let query = supabase
     .from("transactions")
     .select(
-      "id, descricao, valor, data, categoria, account_id, transfer_id, desconto, acrescimo, accounts(nome)",
+      "id, descricao, valor, data, categoria, account_id, transfer_id, desconto, acrescimo, payment_method, payment_details, accounts(nome)",
     )
     .eq("user_id", user.id)
     .eq("type", type)
@@ -146,6 +160,22 @@ export default async function TransactionsView({
                     <td className="border-b border-border px-5 py-3.5 text-[0.9rem] text-fg-secondary">
                       {t.categoria ?? "—"}
                     </td>
+                    <td className="border-b border-border px-5 py-3.5 text-[0.85rem] text-fg-secondary">
+                      {t.payment_method ? (
+                        <>
+                          <div className="text-fg-primary">
+                            {PAYMENT_LABEL[t.payment_method] ?? t.payment_method}
+                          </div>
+                          {t.payment_details && (
+                            <div className="text-[0.72rem] text-fg-muted">
+                              {t.payment_details}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="border-b border-border px-5 py-3.5 text-[0.9rem] text-fg-secondary">
                       {new Date(t.data).toLocaleDateString("pt-BR", {
                         timeZone: "UTC",
@@ -185,6 +215,8 @@ export default async function TransactionsView({
                               transfer_id: t.transfer_id ?? null,
                               desconto: Number(t.desconto ?? 0),
                               acrescimo: Number(t.acrescimo ?? 0),
+                              payment_method: t.payment_method ?? null,
+                              payment_details: t.payment_details ?? null,
                             },
                           }}
                         />

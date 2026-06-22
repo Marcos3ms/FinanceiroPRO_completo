@@ -9,6 +9,8 @@ type ScheduleRow = {
   categoria: string | null;
   accountName: string;
   status: "pago" | "atrasado" | "vence_hoje" | "pendente";
+  paymentMethod: string | null;
+  paymentDetails: string | null;
 };
 
 const COLUMNS = [
@@ -16,6 +18,7 @@ const COLUMNS = [
   "Conta",
   "Descrição",
   "Categoria",
+  "Pagamento",
   "Frequência",
   "Vencimento",
   "Valor",
@@ -39,6 +42,13 @@ const STATUS_CLASS: Record<string, string> = {
   atrasado: "bg-brand-red-bg text-brand-red",
   vence_hoje: "bg-yellow-500/15 text-yellow-500",
   pendente: "bg-brand-blue-bg text-brand-blue",
+};
+
+const PAYMENT_LABEL: Record<string, string> = {
+  pix: "PIX",
+  transferencia: "Transferência",
+  boleto: "Boleto",
+  cartao: "Cartão",
 };
 
 export default function AgendamentosRelatorio({
@@ -142,6 +152,22 @@ export default function AgendamentosRelatorio({
                   {r.categoria ?? "—"}
                 </td>
                 <td className="border-b border-border px-4 py-3 text-[0.85rem] text-fg-secondary">
+                  {r.paymentMethod ? (
+                    <>
+                      <div className="text-fg-primary">
+                        {PAYMENT_LABEL[r.paymentMethod] ?? r.paymentMethod}
+                      </div>
+                      {r.paymentDetails && (
+                        <div className="text-[0.72rem] text-fg-muted">
+                          {r.paymentDetails}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="border-b border-border px-4 py-3 text-[0.85rem] text-fg-secondary">
                   {FREQ_LABEL[r.frequencia] ?? r.frequencia}
                 </td>
                 <td className="border-b border-border px-4 py-3 text-[0.85rem] text-fg-secondary">
@@ -156,7 +182,7 @@ export default function AgendamentosRelatorio({
             ))}
             <tr className="bg-bg-elevated">
               <td
-                colSpan={6}
+                colSpan={7}
                 className="px-4 py-3 text-right text-[0.8rem] font-semibold uppercase tracking-wider text-fg-muted"
               >
                 Total

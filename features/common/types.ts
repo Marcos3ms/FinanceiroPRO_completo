@@ -77,6 +77,23 @@ export function isValidMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
+/** Valida uma data no formato YYYY-MM-DD. */
+export function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const t = Date.parse(value + "T00:00:00Z");
+  return Number.isFinite(t);
+}
+
+/** Próximo dia (YYYY-MM-DD) — útil para fim exclusivo em consultas com .lt(). */
+export function nextDay(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(next.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** Primeiro dia do mês seguinte (YYYY-MM-01) a partir de uma competência YYYY-MM. */
 export function nextMonthStart(mes: string): string {
   const [year, month] = mes.split("-").map(Number);

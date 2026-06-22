@@ -9,6 +9,7 @@ import ReceitasVsDespesas from "@/components/reports/ReceitasVsDespesas";
 import Extrato from "@/components/reports/Extrato";
 import AgendamentosRelatorio from "@/components/reports/AgendamentosRelatorio";
 import PrintButton from "@/components/reports/PrintButton";
+import PeriodoFilter from "@/components/reports/PeriodoFilter";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORIES, SALDO_ANTERIOR_CATEGORY } from "@/lib/categories";
 import {
@@ -16,8 +17,10 @@ import {
   todayBR,
   currentMonthBR,
   isValidMonth,
+  isValidDate,
   nextMonthStart,
   prevMonthStart,
+  nextDay,
 } from "@/features/common/types";
 
 export const metadata = { title: "Relatórios - FinanceiroPro" };
@@ -27,6 +30,9 @@ type SP = {
   account_id?: string;
   categoria?: string;
   mes?: string;
+  periodo?: "mes" | "personalizado";
+  inicio?: string;
+  fim?: string;
 };
 
 const MONTH_NAMES = [
@@ -61,6 +67,19 @@ const MONTH_NAMES_FULL = [
 
 type ScheduleStatus = "pago" | "atrasado" | "vence_hoje" | "pendente";
 
+type ScheduleReportRow = {
+  id: string;
+  descricao: string;
+  valor: number;
+  frequencia: string;
+  vencimento: string;
+  categoria: string | null;
+  accountName: string;
+  status: ScheduleStatus;
+  paymentMethod: string | null;
+  paymentDetails: string | null;
+};
+
 function computeStatus(vencimento: string, paidAt: string | null): ScheduleStatus {
   if (paidAt) return "pago";
   const today = todayBR();
@@ -89,6 +108,20 @@ export default async function RelatoriosPage({
 
   const isExtrato = tipo === "extrato";
   const isAgendamentos = tipo === "agendamentos";
+
+  // Período: "mes" (padrão) usa o mês inteiro; "personalizado" usa um intervalo
+  // de datas dentro/através de meses, definido por `inicio` e `fim` (inclusivos).
+  const inicio = searchParams.inicio ?? "";
+  const fim = searchParams.fim ?? "";
+  const isCustomPeriod =
+    searchParams.periodo === "personalizado" &&
+    isValidDate(inicio) &&
+    isValidDate(fim) &&
+    inicio <= fim;
+
+  // `rangeStart` é inclusivo, `rangeEnd` é exclusivo (compatível com `.lt()`).
+  const rangeStart = isCustomPeriod ? inicio : `${mes}-01`;
+  const rangeEnd = isCustomPeriod ? nextDay(fim) : nextMonthStart(mes);
 
   const [
     { data: profile },
@@ -125,7 +158,7 @@ export default async function RelatoriosPage({
         else if (tipo === "despesas") q = q.eq("type", "despesa");
         if (accountId) q = q.eq("account_id", accountId);
         if (categoria) q = q.eq("categoria", categoria);
-        q = q.gte("data", `${mes}-01`).lt("data", nextMonthStart(mes));
+        q = q.gte("data", rangeStart).lt("data", rangeEnd);
         return q;
       })(),
       (() => {
@@ -144,12 +177,17 @@ export default async function RelatoriosPage({
           .gte("data", sinceStr);
       })(),
       (() => {
-        // Para o extrato, busca receitas "Saldo anterior" do mês anterior
-        // para que apareçam como abertura no extrato do mês atual.
+        // Para o extrato, busca receitas "Saldo anterior" anteriores ao
+        // início do período para abrirem o extrato como saldo de abertura.
         if (!isExtrato) return Promise.resolve({ data: [], error: null });
         if (categoria && categoria !== SALDO_ANTERIOR_CATEGORY) {
           return Promise.resolve({ data: [], error: null });
         }
+        // No modo mensal mantém o recorte original (apenas mês anterior).
+        // No modo personalizado pega tudo que veio antes do `inicio`.
+        const saldoLowerBound = isCustomPeriod
+          ? "1970-01-01"
+          : prevMonthStart(mes);
         let q = supabase
           .from("transactions")
           .select(
@@ -158,8 +196,8 @@ export default async function RelatoriosPage({
           .eq("user_id", user.id)
           .eq("type", "receita")
           .eq("categoria", SALDO_ANTERIOR_CATEGORY)
-          .gte("data", prevMonthStart(mes))
-          .lt("data", `${mes}-01`);
+          .gte("data", saldoLowerBound)
+          .lt("data", rangeStart);
         if (accountId) q = q.eq("account_id", accountId);
         return q
           .order("data", { ascending: true })
@@ -168,32 +206,27 @@ export default async function RelatoriosPage({
     ]);
 
   // ─── Buscar agendamentos quando tipo = "agendamentos" ───
-  let scheduleRows: {
-    id: string;
-    descricao: string;
-    valor: number;
-    frequencia: string;
-    vencimento: string;
-    categoria: string | null;
-    accountName: string;
-    status: ScheduleStatus;
-  }[] = [];
+  let scheduleRows: ScheduleReportRow[] = [];
   let scheduleMonthLabel = "";
 
   if (isAgendamentos) {
-    const startOfMonth = `${mes}-01`;
-    const startOfNextMonth = nextMonthStart(mes);
-    const [year, monthIdx] = mes.split("-").map(Number);
-    scheduleMonthLabel = `${MONTH_NAMES_FULL[monthIdx - 1]} de ${year}`;
+    if (isCustomPeriod) {
+      const [yA, mA, dA] = inicio.split("-");
+      const [yB, mB, dB] = fim.split("-");
+      scheduleMonthLabel = `${dA}/${mA}/${yA} a ${dB}/${mB}/${yB}`;
+    } else {
+      const [year, monthIdx] = mes.split("-").map(Number);
+      scheduleMonthLabel = `${MONTH_NAMES_FULL[monthIdx - 1]} de ${year}`;
+    }
 
     let schedulesQuery = supabase
       .from("schedules")
       .select(
-        "id, descricao, valor, frequencia, vencimento, categoria, paid_at, account_id, accounts(nome)",
+        "id, descricao, valor, frequencia, vencimento, categoria, paid_at, account_id, payment_method, payment_details, accounts(nome)",
       )
       .eq("user_id", user.id)
-      .gte("vencimento", startOfMonth)
-      .lt("vencimento", startOfNextMonth);
+      .gte("vencimento", rangeStart)
+      .lt("vencimento", rangeEnd);
     if (categoria) schedulesQuery = schedulesQuery.eq("categoria", categoria);
     const { data: schedulesData } = await schedulesQuery.order(
       "vencimento",
@@ -213,6 +246,8 @@ export default async function RelatoriosPage({
         categoria: s.categoria,
         accountName,
         status: computeStatus(s.vencimento, s.paid_at),
+        paymentMethod: s.payment_method ?? null,
+        paymentDetails: s.payment_details ?? null,
       };
     });
   }
@@ -282,7 +317,13 @@ export default async function RelatoriosPage({
   exportParams.set("tipo", tipo);
   if (accountId) exportParams.set("account_id", accountId);
   if (categoria) exportParams.set("categoria", categoria);
-  exportParams.set("mes", mes);
+  if (isCustomPeriod) {
+    exportParams.set("periodo", "personalizado");
+    exportParams.set("inicio", inicio);
+    exportParams.set("fim", fim);
+  } else {
+    exportParams.set("mes", mes);
+  }
 
   const selectedAccount = accountId
     ? (accounts ?? []).find((a) => a.id === accountId)
@@ -358,14 +399,12 @@ export default async function RelatoriosPage({
                 ))}
               </select>
             </FilterGroup>
-            <FilterGroup label="Competência">
-              <input
-                name="mes"
-                type="month"
-                className="form-input"
-                defaultValue={mes}
-              />
-            </FilterGroup>
+            <PeriodoFilter
+              defaultMode={isCustomPeriod ? "personalizado" : "mes"}
+              defaultMes={mes}
+              defaultInicio={inicio}
+              defaultFim={fim}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" className="btn btn-blue">

@@ -73,15 +73,18 @@ export default async function CapaDespesaPage({
     boleto: "Boleto",
     cartao: "Cartão",
   };
+  const PAYMENT_DETAILS_LABEL: Record<string, string> = {
+    pix: "Chave PIX",
+    transferencia: "Dados bancários",
+    boleto: "Identificação do boleto",
+    cartao: "Identificação do cartão",
+  };
   const paymentMethodLabel = row.payment_method
     ? (PAYMENT_LABEL[row.payment_method] ?? row.payment_method)
     : null;
-  const paymentDetailsLabel =
-    row.payment_method === "pix"
-      ? "Chave PIX"
-      : row.payment_method === "transferencia"
-        ? "Dados bancários"
-        : null;
+  const paymentDetailsLabel = row.payment_method
+    ? (PAYMENT_DETAILS_LABEL[row.payment_method] ?? "Dados do pagamento")
+    : null;
   const showPaymentDetails =
     !!paymentDetailsLabel && !!row.payment_details;
 
