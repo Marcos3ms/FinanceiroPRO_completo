@@ -191,15 +191,13 @@ export default async function TransactionsView({
                     <td className="border-b border-border px-5 py-3.5 text-[0.9rem] print:hidden">
                       <div className="flex items-center gap-1">
                         {type === "despesa" && (
-                          <a
+                          <Link
                             href={`/capa/despesa/${t.id}`}
-                            target="_blank"
-                            rel="noopener"
                             title="Capa para impressão"
                             className="flex h-8 w-8 items-center justify-center rounded-sm text-fg-muted transition-all hover:bg-brand-blue-bg hover:text-brand-blue"
                           >
                             <FileText className="h-4 w-4" />
-                          </a>
+                          </Link>
                         )}
                         <EditButton
                           payload={{
