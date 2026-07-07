@@ -8,6 +8,10 @@ import DespesasPorCategoria from "@/components/reports/DespesasPorCategoria";
 import ReceitasVsDespesas from "@/components/reports/ReceitasVsDespesas";
 import Extrato from "@/components/reports/Extrato";
 import AgendamentosRelatorio from "@/components/reports/AgendamentosRelatorio";
+import ConsolidadoPorConta, {
+  type AccountConsolidado,
+  type ConsolidadoRow,
+} from "@/components/reports/ConsolidadoPorConta";
 import PrintButton from "@/components/reports/PrintButton";
 import PeriodoFilter from "@/components/reports/PeriodoFilter";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +30,13 @@ import {
 export const metadata = { title: "Relatórios - FinanceiroPro" };
 
 type SP = {
-  tipo?: "receitas" | "despesas" | "comparativo" | "extrato" | "agendamentos";
+  tipo?:
+    | "receitas"
+    | "despesas"
+    | "comparativo"
+    | "extrato"
+    | "agendamentos"
+    | "consolidado";
   account_id?: string;
   categoria?: string;
   mes?: string;
@@ -108,6 +118,7 @@ export default async function RelatoriosPage({
 
   const isExtrato = tipo === "extrato";
   const isAgendamentos = tipo === "agendamentos";
+  const isConsolidado = tipo === "consolidado";
 
   // Período: "mes" (padrão) usa o mês inteiro; "personalizado" usa um intervalo
   // de datas dentro/através de meses, definido por `inicio` e `fim` (inclusivos).
@@ -153,7 +164,9 @@ export default async function RelatoriosPage({
           .eq("user_id", user.id)
           .order("data", { ascending: true })
           .order("created_at", { ascending: true });
-        if (!isExtrato) q = q.is("transfer_id", null);
+        // Extrato e Consolidado precisam das duas pernas das transferências;
+        // demais relatórios ignoram esses lançamentos.
+        if (!isExtrato && !isConsolidado) q = q.is("transfer_id", null);
         if (tipo === "receitas") q = q.eq("type", "receita");
         else if (tipo === "despesas") q = q.eq("type", "despesa");
         if (accountId) q = q.eq("account_id", accountId);
@@ -177,9 +190,11 @@ export default async function RelatoriosPage({
           .gte("data", sinceStr);
       })(),
       (() => {
-        // Para o extrato, busca receitas "Saldo anterior" anteriores ao
-        // início do período para abrirem o extrato como saldo de abertura.
-        if (!isExtrato) return Promise.resolve({ data: [], error: null });
+        // Extrato e Consolidado abrem a partir do "Saldo anterior" lançado
+        // antes do início do período.
+        if (!isExtrato && !isConsolidado) {
+          return Promise.resolve({ data: [], error: null });
+        }
         if (categoria && categoria !== SALDO_ANTERIOR_CATEGORY) {
           return Promise.resolve({ data: [], error: null });
         }
@@ -254,18 +269,69 @@ export default async function RelatoriosPage({
 
   const rows = filteredRows ?? [];
 
-  // Para o extrato: junta o "Saldo anterior" do mês anterior no topo e
-  // remove os "Saldo anterior" do mês corrente (eles vão aparecer no
-  // extrato do próximo mês).
-  const extratoRows = isExtrato
-    ? [
-        ...(prevSaldoRows ?? []),
-        ...rows.filter(
-          (r) =>
-            !(r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY),
-        ),
-      ]
-    : [];
+  // Extrato + Consolidado: junta "Saldo anterior" do período anterior no topo
+  // e evita duplicar os "Saldo anterior" do próprio período (esses vão abrir
+  // o extrato do próximo mês).
+  const rowsWithPrevSaldo =
+    isExtrato || isConsolidado
+      ? [
+          ...(prevSaldoRows ?? []),
+          ...rows.filter(
+            (r) =>
+              !(r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY),
+          ),
+        ]
+      : [];
+  const extratoRows = isExtrato ? rowsWithPrevSaldo : [];
+
+  // Consolidado: agrupa por conta.
+  const consolidadoAccounts: AccountConsolidado[] = (() => {
+    if (!isConsolidado) return [];
+    const byAccount = new Map<
+      string,
+      { accountName: string; rows: ConsolidadoRow[] }
+    >();
+    for (const r of rowsWithPrevSaldo) {
+      const accountName = Array.isArray(r.accounts)
+        ? (r.accounts[0]?.nome ?? "—")
+        : ((r.accounts as { nome: string } | null)?.nome ?? "—");
+      const key = r.account_id ?? "sem-conta";
+      const entry = byAccount.get(key) ?? {
+        accountName,
+        rows: [] as ConsolidadoRow[],
+      };
+      entry.rows.push({
+        id: r.id,
+        type: r.type,
+        descricao: r.descricao,
+        valor: Number(r.valor),
+        data: r.data,
+        categoria: r.categoria,
+        transferId: r.transfer_id ?? null,
+      });
+      byAccount.set(key, entry);
+    }
+    return Array.from(byAccount.entries())
+      .map(([accountId, { accountName, rows: accRows }]) => ({
+        accountId,
+        accountName,
+        rows: accRows,
+      }))
+      .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
+  })();
+
+  // Label do período: usado em cabeçalhos ("Junho · 2026" ou "10/06/2026 a 20/06/2026").
+  const periodLabel = (() => {
+    if (isCustomPeriod) {
+      const fmt = (s: string) => {
+        const [y, m, d] = s.split("-");
+        return `${d}/${m}/${y}`;
+      };
+      return `${fmt(inicio)} a ${fmt(fim)}`;
+    }
+    const [year, monthIdx] = mes.split("-").map(Number);
+    return `${MONTH_NAMES_FULL[monthIdx - 1]} · ${year}`;
+  })();
 
   // Despesas por categoria (a partir de filteredRows quando há despesas)
   const despesasPorCategoria = (() => {
@@ -363,6 +429,7 @@ export default async function RelatoriosPage({
             <FilterGroup label="Tipo de Relatório">
               <select name="tipo" className="form-select" defaultValue={tipo}>
                 <option value="extrato">Extrato</option>
+                <option value="consolidado">Consolidado por conta</option>
                 <option value="comparativo">Comparativo</option>
                 <option value="receitas">Receitas</option>
                 <option value="despesas">Despesas</option>
@@ -429,6 +496,12 @@ export default async function RelatoriosPage({
           <AgendamentosRelatorio
             rows={scheduleRows}
             monthLabel={scheduleMonthLabel}
+          />
+        ) : isConsolidado ? (
+          <ConsolidadoPorConta
+            companyName={profile?.company_name ?? null}
+            periodLabel={periodLabel}
+            accounts={consolidadoAccounts}
           />
         ) : isExtrato ? (
           <Extrato
