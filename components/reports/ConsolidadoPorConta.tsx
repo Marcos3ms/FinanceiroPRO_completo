@@ -2,6 +2,7 @@ import { formatBRL } from "@/features/common/types";
 import { TRANSFER_CATEGORY } from "@/lib/categories";
 
 const IMPOSTO_CATEGORY = "Imposto";
+const ASSESSORIA_CATEGORY = "Assessoria especializada";
 
 export type ConsolidadoRow = {
   id: string;
@@ -34,7 +35,7 @@ function bucketize(rows: ConsolidadoRow[]) {
   const transferencias: ConsolidadoRow[] = [];
   const impostos: ConsolidadoRow[] = [];
   const despesas: ConsolidadoRow[] = [];
-  const retiradas: ConsolidadoRow[] = []; // Sem categoria correspondente por ora.
+  const assessoria: ConsolidadoRow[] = [];
 
   for (const r of rows) {
     if (r.type === "receita") {
@@ -43,22 +44,24 @@ function bucketize(rows: ConsolidadoRow[]) {
       transferencias.push(r);
     } else if (r.categoria === IMPOSTO_CATEGORY) {
       impostos.push(r);
+    } else if (r.categoria === ASSESSORIA_CATEGORY) {
+      assessoria.push(r);
     } else {
       despesas.push(r);
     }
   }
 
-  return { receitas, transferencias, impostos, despesas, retiradas };
+  return { receitas, transferencias, impostos, despesas, assessoria };
 }
 
-type Tone = "receita" | "transferencia" | "imposto" | "despesa" | "retirada";
+type Tone = "receita" | "transferencia" | "imposto" | "despesa" | "assessoria";
 
 const TONE_HEADER: Record<Tone, string> = {
   receita: "bg-credit-bg text-credit border-credit-border",
   transferencia: "bg-accent-bg text-accent border-accent-border",
   imposto: "bg-blue-500/12 text-blue-400 border-blue-500/30",
   despesa: "bg-debit-bg text-debit border-debit-border",
-  retirada: "bg-debit-bg text-debit border-debit-border",
+  assessoria: "bg-debit-bg text-debit border-debit-border",
 };
 
 function BucketTable({
@@ -130,7 +133,7 @@ function SummaryPanel({
     transferencias: number;
     despesas: number;
     impostos: number;
-    retiradas: number;
+    assessoria: number;
   };
 }) {
   const lines: [string, number][] = [
@@ -138,7 +141,7 @@ function SummaryPanel({
     ["Transferências", totals.transferencias],
     ["Despesas", totals.despesas],
     ["Impostos", totals.impostos],
-    ["Retiradas", totals.retiradas],
+    ["Assessoria especializada", totals.assessoria],
   ];
   return (
     <div className="border border-border">
@@ -213,14 +216,14 @@ export default function ConsolidadoPorConta({
           transferencias: sumRows(buckets.transferencias),
           despesas: sumRows(buckets.despesas),
           impostos: sumRows(buckets.impostos),
-          retiradas: sumRows(buckets.retiradas),
+          assessoria: sumRows(buckets.assessoria),
         };
         const saldo =
           totals.receitas -
           totals.transferencias -
           totals.despesas -
           totals.impostos -
-          totals.retiradas;
+          totals.assessoria;
 
         return (
           <article
@@ -278,9 +281,9 @@ export default function ConsolidadoPorConta({
                   tone="imposto"
                 />
                 <BucketTable
-                  title="Retiradas"
-                  rows={buckets.retiradas}
-                  tone="retirada"
+                  title="Assessoria especializada"
+                  rows={buckets.assessoria}
+                  tone="assessoria"
                 />
               </div>
 
