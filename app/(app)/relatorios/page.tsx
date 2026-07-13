@@ -320,19 +320,6 @@ export default async function RelatoriosPage({
       .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
   })();
 
-  // Label do período: usado em cabeçalhos ("Junho · 2026" ou "10/06/2026 a 20/06/2026").
-  const periodLabel = (() => {
-    if (isCustomPeriod) {
-      const fmt = (s: string) => {
-        const [y, m, d] = s.split("-");
-        return `${d}/${m}/${y}`;
-      };
-      return `${fmt(inicio)} a ${fmt(fim)}`;
-    }
-    const [year, monthIdx] = mes.split("-").map(Number);
-    return `${MONTH_NAMES_FULL[monthIdx - 1]} · ${year}`;
-  })();
-
   // Despesas por categoria (a partir de filteredRows quando há despesas)
   const despesasPorCategoria = (() => {
     const map = new Map<string, number>();
@@ -498,11 +485,7 @@ export default async function RelatoriosPage({
             monthLabel={scheduleMonthLabel}
           />
         ) : isConsolidado ? (
-          <ConsolidadoPorConta
-            companyName={profile?.company_name ?? null}
-            periodLabel={periodLabel}
-            accounts={consolidadoAccounts}
-          />
+          <ConsolidadoPorConta accounts={consolidadoAccounts} />
         ) : isExtrato ? (
           <Extrato
             rows={extratoRows.map((r) => ({
