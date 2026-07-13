@@ -134,6 +134,17 @@ export default async function RelatoriosPage({
   const rangeStart = isCustomPeriod ? inicio : `${mes}-01`;
   const rangeEnd = isCustomPeriod ? nextDay(fim) : nextMonthStart(mes);
 
+  // Competência exibida no cabeçalho impresso de todos os relatórios.
+  const competenciaLabel = (() => {
+    if (isCustomPeriod) {
+      const [yA, mA, dA] = inicio.split("-");
+      const [yB, mB, dB] = fim.split("-");
+      return `${dA}/${mA}/${yA} a ${dB}/${mB}/${yB}`;
+    }
+    const [year, monthIdx] = mes.split("-").map(Number);
+    return `${MONTH_NAMES_FULL[monthIdx - 1]} de ${year}`;
+  })();
+
   const [
     { data: profile },
     { data: accounts },
@@ -391,17 +402,22 @@ export default async function RelatoriosPage({
       />
 
       <section className="px-4 pb-8 sm:px-8">
-        {selectedAccount && (
-          <div className="mb-6 hidden border-b border-border pb-4 text-center print:block">
-            <p className="text-[0.85rem] font-semibold uppercase tracking-wider text-brand-blue">
-              Conta: {selectedAccount.nome}
-              {selectedAccount.banco && ` · Banco: ${selectedAccount.banco}`}
-              {selectedAccount.agencia &&
-                ` · Agência: ${selectedAccount.agencia}`}
-              {selectedAccount.conta && ` · Conta: ${selectedAccount.conta}`}
-            </p>
-          </div>
-        )}
+        <div className="mb-6 hidden items-baseline justify-between gap-4 border-b border-border pb-4 print:flex">
+          <p className="text-[0.85rem] font-semibold uppercase tracking-wider text-brand-blue">
+            {selectedAccount && (
+              <>
+                Conta: {selectedAccount.nome}
+                {selectedAccount.banco && ` · Banco: ${selectedAccount.banco}`}
+                {selectedAccount.agencia &&
+                  ` · Agência: ${selectedAccount.agencia}`}
+                {selectedAccount.conta && ` · Conta: ${selectedAccount.conta}`}
+              </>
+            )}
+          </p>
+          <p className="shrink-0 text-[0.85rem] font-semibold uppercase tracking-wider text-brand-blue">
+            Competência: {competenciaLabel}
+          </p>
+        </div>
 
         <CompanyForm
           initialName={profile?.company_name ?? ""}
