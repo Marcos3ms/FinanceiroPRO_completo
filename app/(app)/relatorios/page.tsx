@@ -485,7 +485,10 @@ export default async function RelatoriosPage({
             monthLabel={scheduleMonthLabel}
           />
         ) : isConsolidado ? (
-          <ConsolidadoPorConta accounts={consolidadoAccounts} />
+          <ConsolidadoPorConta
+            accounts={consolidadoAccounts}
+            showSetor={!selectedAccount}
+          />
         ) : isExtrato ? (
           <Extrato
             rows={extratoRows.map((r) => ({

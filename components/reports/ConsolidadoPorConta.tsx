@@ -200,8 +200,12 @@ function SaldoBanner({ saldo }: { saldo: number }) {
 
 export default function ConsolidadoPorConta({
   accounts,
+  showSetor = true,
 }: {
   accounts: AccountConsolidado[];
+  /** Oculta a barra "Setor" quando a conta já está identificada acima
+   *  (ex: filtro de conta específica já mostra "Conta: X" no cabeçalho). */
+  showSetor?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-8">
@@ -224,14 +228,16 @@ export default function ConsolidadoPorConta({
         return (
           <article
             key={acc.accountId}
-            className="border border-border bg-bg-card print:border-0 print:break-inside-avoid"
+            className="border border-border bg-bg-card print:border-0"
           >
-            <div className="border-b border-border bg-bg-elevated px-5 py-3 text-[0.85rem]">
-              <span className="eyebrow mr-3">Setor</span>
-              <span className="font-medium text-fg-primary">{acc.accountName}</span>
-            </div>
+            {showSetor && (
+              <div className="border-b border-border bg-bg-elevated px-5 py-3 text-[0.85rem] print:break-inside-avoid">
+                <span className="eyebrow mr-3">Setor</span>
+                <span className="font-medium text-fg-primary">{acc.accountName}</span>
+              </div>
+            )}
 
-            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-3 print:pt-0">
               {/* Coluna 1: Receitas + Sumário + Saldo */}
               <div className="flex flex-col gap-4">
                 <BucketTable
