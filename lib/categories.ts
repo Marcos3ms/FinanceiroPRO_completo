@@ -6,6 +6,7 @@ export const CATEGORIES = [
   "Anuidade conselhos",
   "Assessoria administrativa",
   "Assessoria especializada",
+  "Depósito em conta",
   "Despesas de escritório",
   "Energia",
   "Folha de pagamento",
