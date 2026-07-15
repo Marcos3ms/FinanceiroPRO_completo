@@ -23,7 +23,6 @@ import {
   isValidMonth,
   isValidDate,
   nextMonthStart,
-  prevMonthStart,
   nextDay,
 } from "@/features/common/types";
 
@@ -150,7 +149,7 @@ export default async function RelatoriosPage({
     { data: accounts },
     { data: filteredRows },
     { data: last6Rows },
-    { data: prevSaldoRows },
+    { data: priorRows },
   ] = await Promise.all([
       supabase
         .from("profiles")
@@ -201,33 +200,26 @@ export default async function RelatoriosPage({
           .gte("data", sinceStr);
       })(),
       (() => {
-        // Extrato e Consolidado abrem a partir do "Saldo anterior" lançado
-        // antes do início do período.
+        // Extrato e Consolidado abrem com o saldo anterior calculado
+        // automaticamente a partir de TODAS as movimentações antes do período.
         if (!isExtrato && !isConsolidado) {
           return Promise.resolve({ data: [], error: null });
         }
+        // Extrato filtrado por categoria específica não é um saldo real.
         if (categoria && categoria !== SALDO_ANTERIOR_CATEGORY) {
           return Promise.resolve({ data: [], error: null });
         }
-        // No modo mensal mantém o recorte original (apenas mês anterior).
-        // No modo personalizado pega tudo que veio antes do `inicio`.
-        const saldoLowerBound = isCustomPeriod
-          ? "1970-01-01"
-          : prevMonthStart(mes);
+        // Busca todo o histórico antes do início do período (inclui as duas
+        // pernas das transferências, pois afetam o saldo por conta).
         let q = supabase
           .from("transactions")
-          .select(
-            "id, type, descricao, valor, data, categoria, transfer_id, account_id, payment_method, payment_details, accounts(nome)",
-          )
+          .select("type, valor, data, categoria, account_id")
           .eq("user_id", user.id)
-          .eq("type", "receita")
-          .eq("categoria", SALDO_ANTERIOR_CATEGORY)
-          .gte("data", saldoLowerBound)
-          .lt("data", rangeStart);
-        if (accountId) q = q.eq("account_id", accountId);
-        return q
+          .lt("data", rangeStart)
           .order("data", { ascending: true })
           .order("created_at", { ascending: true });
+        if (accountId) q = q.eq("account_id", accountId);
+        return q;
       })(),
     ]);
 
@@ -280,38 +272,111 @@ export default async function RelatoriosPage({
 
   const rows = filteredRows ?? [];
 
-  // Extrato + Consolidado: junta "Saldo anterior" do período anterior no topo
-  // e evita duplicar os "Saldo anterior" do próprio período (esses vão abrir
-  // o extrato do próximo mês).
-  const rowsWithPrevSaldo =
-    isExtrato || isConsolidado
-      ? [
-          ...(prevSaldoRows ?? []),
-          ...rows.filter(
-            (r) =>
-              !(r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY),
-          ),
-        ]
-      : [];
-  const extratoRows = isExtrato ? rowsWithPrevSaldo : [];
+  // Saldo anterior automático, por conta. Para cada conta: parte do último
+  // "Saldo anterior" lançado (checkpoint) antes do período e soma todas as
+  // movimentações reais (receitas − despesas, incluindo transferências) até o
+  // início do período. Se não houver checkpoint, acumula desde o começo.
+  const saldoAnteriorByAccount = (() => {
+    const map = new Map<string, number>();
+    if (!isExtrato && !isConsolidado) return map;
+    type PriorRow = NonNullable<typeof priorRows>[number];
+    const byAcc = new Map<string, PriorRow[]>();
+    for (const r of priorRows ?? []) {
+      const key = r.account_id ?? "sem-conta";
+      const list = byAcc.get(key) ?? [];
+      list.push(r);
+      byAcc.set(key, list);
+    }
+    for (const [key, list] of byAcc) {
+      // `list` já vem ordenado por data/created_at (asc) da query.
+      let checkpointIdx = -1;
+      let base = 0;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (
+          list[i].type === "receita" &&
+          list[i].categoria === SALDO_ANTERIOR_CATEGORY
+        ) {
+          base = Number(list[i].valor);
+          checkpointIdx = i;
+          break;
+        }
+      }
+      let saldo = base;
+      for (let i = checkpointIdx + 1; i < list.length; i++) {
+        const r = list[i];
+        // Ignora outros marcadores "Saldo anterior" para não duplicar.
+        if (r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY) {
+          continue;
+        }
+        saldo += r.type === "receita" ? Number(r.valor) : -Number(r.valor);
+      }
+      map.set(key, saldo);
+    }
+    return map;
+  })();
 
-  // Consolidado: agrupa por conta.
+  const accountNameById = new Map(
+    (accounts ?? []).map((a) => [a.id, a.nome]),
+  );
+
+  // Movimentações do período (exclui os "Saldo anterior" lançados no próprio
+  // período — esses abrem o extrato do período seguinte).
+  const periodRows = rows.filter(
+    (r) => !(r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY),
+  );
+
+  // Extrato: uma única linha sintética de abertura com o saldo anterior
+  // combinado das contas do escopo (conta filtrada ou soma de todas).
+  const extratoRows = (() => {
+    if (!isExtrato) return [] as typeof rows;
+    const hasPrior = (priorRows ?? []).length > 0;
+    if (!hasPrior) return periodRows;
+    const openingValue = accountId
+      ? (saldoAnteriorByAccount.get(accountId) ?? 0)
+      : Array.from(saldoAnteriorByAccount.values()).reduce((s, v) => s + v, 0);
+    const opening = {
+      id: "__saldo_anterior__",
+      type: "receita" as const,
+      descricao: "Saldo anterior",
+      valor: openingValue,
+      data: rangeStart,
+      categoria: SALDO_ANTERIOR_CATEGORY,
+      transfer_id: null,
+      account_id: accountId || null,
+      payment_method: null,
+      payment_details: null,
+      accounts: accountId
+        ? { nome: accountNameById.get(accountId) ?? "—" }
+        : null,
+    };
+    return [opening, ...periodRows];
+  })();
+
+  // Consolidado: agrupa por conta e injeta o saldo anterior no topo de cada uma.
   const consolidadoAccounts: AccountConsolidado[] = (() => {
     if (!isConsolidado) return [];
     const byAccount = new Map<
       string,
       { accountName: string; rows: ConsolidadoRow[] }
     >();
-    for (const r of rowsWithPrevSaldo) {
+
+    const ensure = (key: string, fallbackName: string) => {
+      const existing = byAccount.get(key);
+      if (existing) return existing;
+      const created = {
+        accountName: accountNameById.get(key) ?? fallbackName,
+        rows: [] as ConsolidadoRow[],
+      };
+      byAccount.set(key, created);
+      return created;
+    };
+
+    for (const r of periodRows) {
       const accountName = Array.isArray(r.accounts)
         ? (r.accounts[0]?.nome ?? "—")
         : ((r.accounts as { nome: string } | null)?.nome ?? "—");
       const key = r.account_id ?? "sem-conta";
-      const entry = byAccount.get(key) ?? {
-        accountName,
-        rows: [] as ConsolidadoRow[],
-      };
-      entry.rows.push({
+      ensure(key, accountName).rows.push({
         id: r.id,
         type: r.type,
         descricao: r.descricao,
@@ -320,8 +385,22 @@ export default async function RelatoriosPage({
         categoria: r.categoria,
         transferId: r.transfer_id ?? null,
       });
-      byAccount.set(key, entry);
     }
+
+    // Injeta o saldo anterior no topo das contas que têm histórico anterior.
+    for (const [key, value] of saldoAnteriorByAccount) {
+      const entry = ensure(key, "—");
+      entry.rows.unshift({
+        id: `__saldo_anterior__${key}`,
+        type: "receita",
+        descricao: "Saldo anterior",
+        valor: value,
+        data: rangeStart,
+        categoria: SALDO_ANTERIOR_CATEGORY,
+        transferId: null,
+      });
+    }
+
     return Array.from(byAccount.entries())
       .map(([accountId, { accountName, rows: accRows }]) => ({
         accountId,
