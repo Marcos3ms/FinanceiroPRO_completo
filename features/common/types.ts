@@ -94,6 +94,17 @@ export function nextDay(date: string): string {
   )}-${String(next.getUTCDate()).padStart(2, "0")}`;
 }
 
+/** Dia anterior (YYYY-MM-DD). Para o início de um período, retorna o último
+ *  dia do mês/período anterior. */
+export function prevDay(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(prev.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** Primeiro dia do mês seguinte (YYYY-MM-01) a partir de uma competência YYYY-MM. */
 export function nextMonthStart(mes: string): string {
   const [year, month] = mes.split("-").map(Number);

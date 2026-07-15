@@ -24,6 +24,7 @@ import {
   isValidDate,
   nextMonthStart,
   nextDay,
+  prevDay,
 } from "@/features/common/types";
 
 export const metadata = { title: "Relatórios - FinanceiroPro" };
@@ -325,6 +326,10 @@ export default async function RelatoriosPage({
     (r) => !(r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY),
   );
 
+  // Data exibida no saldo anterior: último dia antes do período (para o modo
+  // mensal, o último dia do mês anterior).
+  const saldoAnteriorDate = prevDay(rangeStart);
+
   // Extrato: uma única linha sintética de abertura com o saldo anterior
   // combinado das contas do escopo (conta filtrada ou soma de todas).
   const extratoRows = (() => {
@@ -339,7 +344,7 @@ export default async function RelatoriosPage({
       type: "receita" as const,
       descricao: "Saldo anterior",
       valor: openingValue,
-      data: rangeStart,
+      data: saldoAnteriorDate,
       categoria: SALDO_ANTERIOR_CATEGORY,
       transfer_id: null,
       account_id: accountId || null,
@@ -395,7 +400,7 @@ export default async function RelatoriosPage({
         type: "receita",
         descricao: "Saldo anterior",
         valor: value,
-        data: rangeStart,
+        data: saldoAnteriorDate,
         categoria: SALDO_ANTERIOR_CATEGORY,
         transferId: null,
       });
