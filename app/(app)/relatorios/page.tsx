@@ -290,23 +290,28 @@ export default async function RelatoriosPage({
     }
     for (const [key, list] of byAcc) {
       // `list` já vem ordenado por data/created_at (asc) da query.
-      let checkpointIdx = -1;
       let base = 0;
+      let checkpointDate: string | null = null;
       for (let i = list.length - 1; i >= 0; i--) {
         if (
           list[i].type === "receita" &&
           list[i].categoria === SALDO_ANTERIOR_CATEGORY
         ) {
           base = Number(list[i].valor);
-          checkpointIdx = i;
+          checkpointDate = list[i].data;
           break;
         }
       }
       let saldo = base;
-      for (let i = checkpointIdx + 1; i < list.length; i++) {
-        const r = list[i];
-        // Ignora outros marcadores "Saldo anterior" para não duplicar.
+      for (const r of list) {
+        // Ignora os marcadores "Saldo anterior" (o base já os representa).
         if (r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY) {
+          continue;
+        }
+        // Só soma movimentações de DIAS POSTERIORES ao checkpoint. As do mesmo
+        // dia (ou anteriores) já estão refletidas no valor lançado, senão
+        // seriam contadas duas vezes.
+        if (checkpointDate !== null && r.data <= checkpointDate) {
           continue;
         }
         saldo += r.type === "receita" ? Number(r.valor) : -Number(r.valor);
