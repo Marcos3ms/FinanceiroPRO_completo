@@ -42,6 +42,10 @@
     --c-accent-border: rgba(201, 168, 106, 0.34);
     --c-accent-ink: #0f1115; /* texto sobre accent (botão dourado) */
 
+    --c-info: #6ea8de; /* azul (impostos) */
+    --c-info-bg: rgba(59, 130, 246, 0.14);
+    --c-info-border: rgba(59, 130, 246, 0.32);
+
     --c-select-chevron: "%239aa3ad";
   }
 
@@ -79,6 +83,10 @@
     --c-accent-bg: rgba(154, 125, 62, 0.14);
     --c-accent-border: rgba(154, 125, 62, 0.34);
     --c-accent-ink: #ffffff;
+
+    --c-info: #2563eb;
+    --c-info-bg: rgba(37, 99, 235, 0.12);
+    --c-info-border: rgba(37, 99, 235, 0.32);
 
     --c-select-chevron: "%236b7480";
   }
@@ -241,12 +249,20 @@
     --c-fg-secondary: #2a2f37;
     --c-fg-muted: #4a5058;
     --c-fg-label: #2a2f37;
-    --c-credit: #3d6432;
-    --c-debit: #6f312c;
-    --c-accent: #826828;
-    --c-credit-bg: rgba(77, 122, 63, 0.10);
-    --c-debit-bg: rgba(138, 62, 57, 0.10);
-    --c-accent-bg: rgba(154, 125, 62, 0.10);
+    /* Paleta viva para impressão: cores semânticas saturadas para saltarem no
+       papel, mantendo credibilidade contábil (verde/vermelho/ouro/azul). */
+    --c-credit: #1a8f47; /* verde vivo (crédito) */
+    --c-debit: #d23a33; /* vermelho vivo (débito) */
+    --c-accent: #c1890f; /* âmbar-ouro vivo (saldo/ações) */
+    --c-info: #1d6fd0; /* azul vivo (impostos) */
+    --c-credit-bg: rgba(26, 143, 71, 0.16);
+    --c-debit-bg: rgba(210, 58, 51, 0.16);
+    --c-accent-bg: rgba(193, 137, 15, 0.18);
+    --c-info-bg: rgba(29, 111, 208, 0.16);
+    --c-credit-border: rgba(26, 143, 71, 0.5);
+    --c-debit-border: rgba(210, 58, 51, 0.5);
+    --c-accent-border: rgba(193, 137, 15, 0.5);
+    --c-info-border: rgba(29, 111, 208, 0.5);
   }
   * {
     -webkit-print-color-adjust: exact !important;

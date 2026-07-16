@@ -1,4 +1,5 @@
 export const CATEGORIES = [
+  "Acordo trabalhista",
   "Advogados",
   "Água",
   "Aluguel",

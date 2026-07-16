@@ -59,7 +59,7 @@ type Tone = "receita" | "transferencia" | "imposto" | "despesa" | "assessoria";
 const TONE_HEADER: Record<Tone, string> = {
   receita: "bg-credit-bg text-credit border-credit-border",
   transferencia: "bg-accent-bg text-accent border-accent-border",
-  imposto: "bg-blue-500/12 text-blue-400 border-blue-500/30",
+  imposto: "bg-info-bg text-info border-info-border",
   despesa: "bg-debit-bg text-debit border-debit-border",
   assessoria: "bg-debit-bg text-debit border-debit-border",
 };

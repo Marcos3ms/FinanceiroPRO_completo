@@ -69,6 +69,11 @@ const config: Config = {
           border: "var(--c-accent-border)",
           ink: "var(--c-accent-ink)",
         },
+        info: {
+          DEFAULT: "var(--c-info)",
+          bg: "var(--c-info-bg)",
+          border: "var(--c-info-border)",
+        },
         // Aliases de compatibilidade: classes brand-* legadas mapeadas para os tokens Ledger.
         // (green→credit, red→debit, blue→accent.) Permite migrar telas gradualmente.
         brand: {
