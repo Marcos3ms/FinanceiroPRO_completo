@@ -4,11 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Modal from "@/components/ui/Modal";
 import { FormGroup, FormRow } from "@/components/ui/FormField";
-import {
-  CATEGORIES,
-  DESPESA_CATEGORY_OPTIONS,
-  TRANSFER_CATEGORY,
-} from "@/lib/categories";
+import { despesaCategoryOptions, TRANSFER_CATEGORY } from "@/lib/categories";
 import {
   initialActionState,
   todayBR,
@@ -84,7 +80,7 @@ function DespesaForm({
   onDone: () => void;
   initial?: Transaction;
 }) {
-  const { accounts } = useModals();
+  const { accounts, categories } = useModals();
   const [state, formAction] = useFormState(
     saveDespesaAction,
     initialActionState,
@@ -150,11 +146,17 @@ function DespesaForm({
   }, [state.ok, onDone]);
 
   // Quando editando, exclui a opção de transferência da lista (ou trava no valor atual)
-  const categoryOptions = isEditing
+  const baseOptions = isEditing
     ? isEditTransfer
       ? [TRANSFER_CATEGORY]
-      : CATEGORIES
-    : DESPESA_CATEGORY_OPTIONS;
+      : categories
+    : despesaCategoryOptions(categories);
+  // Preserva a categoria atual mesmo que ela tenha sido removida da lista,
+  // para não zerar o campo ao editar um lançamento antigo.
+  const categoryOptions =
+    initial?.categoria && !baseOptions.includes(initial.categoria)
+      ? [initial.categoria, ...baseOptions]
+      : baseOptions;
 
   return (
     <form ref={formRef} action={formAction}>

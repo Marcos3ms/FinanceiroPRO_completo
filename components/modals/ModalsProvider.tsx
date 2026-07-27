@@ -45,6 +45,7 @@ type Ctx = {
   accounts: Account[];
   profile: Profile | null;
   email: string;
+  categories: string[];
 };
 
 const ModalsContext = createContext<Ctx | null>(null);
@@ -61,11 +62,13 @@ export function ModalsProvider({
   accounts,
   profile,
   email,
+  categories,
 }: {
   children: ReactNode;
   accounts: Account[];
   profile: Profile | null;
   email: string;
+  categories: string[];
 }) {
   const [current, setCurrent] = useState<ModalKey>(null);
   const [editing, setEditing] = useState<EditingPayload | null>(null);
@@ -95,8 +98,19 @@ export function ModalsProvider({
       accounts,
       profile,
       email,
+      categories,
     }),
-    [current, editing, open, openEdit, close, accounts, profile, email],
+    [
+      current,
+      editing,
+      open,
+      openEdit,
+      close,
+      accounts,
+      profile,
+      email,
+      categories,
+    ],
   );
 
   return (

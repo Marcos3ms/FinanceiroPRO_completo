@@ -14,8 +14,13 @@ import ConsolidadoPorConta, {
 } from "@/components/reports/ConsolidadoPorConta";
 import PrintButton from "@/components/reports/PrintButton";
 import PeriodoFilter from "@/components/reports/PeriodoFilter";
+import { saldoAnteriorByAccount } from "@/features/reports/saldoAnterior";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIES, SALDO_ANTERIOR_CATEGORY } from "@/lib/categories";
+import { getCategoryNames } from "@/features/categories/queries";
+import {
+  filterCategoryOptions,
+  SALDO_ANTERIOR_CATEGORY,
+} from "@/lib/categories";
 import {
   formatBRL,
   todayBR,
@@ -115,6 +120,10 @@ export default async function RelatoriosPage({
   const mes = isValidMonth(searchParams.mes ?? "")
     ? searchParams.mes!
     : currentMonthBR();
+
+  const categoryOptions = filterCategoryOptions(
+    await getCategoryNames(supabase, user.id),
+  );
 
   const isExtrato = tipo === "extrato";
   const isAgendamentos = tipo === "agendamentos";
@@ -277,49 +286,18 @@ export default async function RelatoriosPage({
   // "Saldo anterior" lançado (checkpoint) antes do período e soma todas as
   // movimentações reais (receitas − despesas, incluindo transferências) até o
   // início do período. Se não houver checkpoint, acumula desde o começo.
-  const saldoAnteriorByAccount = (() => {
-    const map = new Map<string, number>();
-    if (!isExtrato && !isConsolidado) return map;
-    type PriorRow = NonNullable<typeof priorRows>[number];
-    const byAcc = new Map<string, PriorRow[]>();
-    for (const r of priorRows ?? []) {
-      const key = r.account_id ?? "sem-conta";
-      const list = byAcc.get(key) ?? [];
-      list.push(r);
-      byAcc.set(key, list);
-    }
-    for (const [key, list] of byAcc) {
-      // `list` já vem ordenado por data/created_at (asc) da query.
-      let base = 0;
-      let checkpointDate: string | null = null;
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (
-          list[i].type === "receita" &&
-          list[i].categoria === SALDO_ANTERIOR_CATEGORY
-        ) {
-          base = Number(list[i].valor);
-          checkpointDate = list[i].data;
-          break;
-        }
-      }
-      let saldo = base;
-      for (const r of list) {
-        // Ignora os marcadores "Saldo anterior" (o base já os representa).
-        if (r.type === "receita" && r.categoria === SALDO_ANTERIOR_CATEGORY) {
-          continue;
-        }
-        // Só soma movimentações de DIAS POSTERIORES ao checkpoint. As do mesmo
-        // dia (ou anteriores) já estão refletidas no valor lançado, senão
-        // seriam contadas duas vezes.
-        if (checkpointDate !== null && r.data <= checkpointDate) {
-          continue;
-        }
-        saldo += r.type === "receita" ? Number(r.valor) : -Number(r.valor);
-      }
-      map.set(key, saldo);
-    }
-    return map;
-  })();
+  const saldoAnteriorMap =
+    isExtrato || isConsolidado
+      ? saldoAnteriorByAccount(
+          (priorRows ?? []).map((r) => ({
+            type: r.type,
+            valor: r.valor,
+            data: r.data,
+            categoria: r.categoria,
+            account_id: r.account_id,
+          })),
+        )
+      : new Map<string, number>();
 
   const accountNameById = new Map(
     (accounts ?? []).map((a) => [a.id, a.nome]),
@@ -342,8 +320,8 @@ export default async function RelatoriosPage({
     const hasPrior = (priorRows ?? []).length > 0;
     if (!hasPrior) return periodRows;
     const openingValue = accountId
-      ? (saldoAnteriorByAccount.get(accountId) ?? 0)
-      : Array.from(saldoAnteriorByAccount.values()).reduce((s, v) => s + v, 0);
+      ? (saldoAnteriorMap.get(accountId) ?? 0)
+      : Array.from(saldoAnteriorMap.values()).reduce((s, v) => s + v, 0);
     const opening = {
       id: "__saldo_anterior__",
       type: "receita" as const,
@@ -398,7 +376,7 @@ export default async function RelatoriosPage({
     }
 
     // Injeta o saldo anterior no topo das contas que têm histórico anterior.
-    for (const [key, value] of saldoAnteriorByAccount) {
+    for (const [key, value] of saldoAnteriorMap) {
       const entry = ensure(key, "—");
       entry.rows.unshift({
         id: `__saldo_anterior__${key}`,
@@ -551,7 +529,7 @@ export default async function RelatoriosPage({
                 defaultValue={categoria}
               >
                 <option value="">Todas</option>
-                {CATEGORIES.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>

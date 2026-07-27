@@ -1,9 +1,11 @@
-import { Lock, Settings as SettingsIcon } from "lucide-react";
+import { Lock, Settings as SettingsIcon, Tag } from "lucide-react";
 import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
 import OpenModalButton from "@/components/settings/OpenModalButton";
+import CategoriesManager from "@/components/settings/CategoriesManager";
 import { createClient } from "@/lib/supabase/server";
+import { getCategories } from "@/features/categories/queries";
 
 export const metadata = { title: "Configurações - FinanceiroPro" };
 
@@ -14,11 +16,14 @@ export default async function ConfiguracoesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, username")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, categories] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, username")
+      .eq("id", user.id)
+      .maybeSingle(),
+    getCategories(supabase, user.id),
+  ]);
 
   const displayName = profile?.full_name || profile?.username || "Usuário";
 
@@ -66,6 +71,14 @@ export default async function ConfiguracoesPage() {
               </div>
             </div>
             <OpenModalButton modalKey="alterar-senha">Alterar</OpenModalButton>
+          </div>
+
+          <div className="mb-3 mt-8 flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-wider text-fg-muted">
+            <Tag className="h-3.5 w-3.5" />
+            Categorias
+          </div>
+          <div className="rounded border border-border bg-bg-secondary p-5">
+            <CategoriesManager categories={categories} />
           </div>
         </div>
         <p className="mt-3 text-xs text-fg-muted">

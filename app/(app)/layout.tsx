@@ -4,6 +4,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import CompanyHeader from "@/components/layout/CompanyHeader";
 import { ModalsProvider } from "@/components/modals/ModalsProvider";
 import ModalsRoot from "@/components/modals/ModalsRoot";
+import { getCategoryNames } from "@/features/categories/queries";
 
 export default async function AppLayout({
   children,
@@ -17,24 +18,31 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: accountsRaw }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, username, company_name, cnpj")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("accounts")
-      .select("id, nome, banco, agencia, conta")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true }),
-  ]);
+  const [{ data: profile }, { data: accountsRaw }, categories] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, username, company_name, cnpj")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("accounts")
+        .select("id, nome, banco, agencia, conta")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true }),
+      getCategoryNames(supabase, user.id),
+    ]);
 
   const accounts = accountsRaw ?? [];
   const email = user.email ?? "";
 
   return (
-    <ModalsProvider accounts={accounts} profile={profile} email={email}>
+    <ModalsProvider
+      accounts={accounts}
+      profile={profile}
+      email={email}
+      categories={categories}
+    >
       <div className="flex min-h-screen">
         <Sidebar profile={profile} email={email} />
         <main className="min-h-screen min-w-0 flex-1 md:ml-sidebar print:ml-0">

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Modal from "@/components/ui/Modal";
 import { FormGroup, FormRow } from "@/components/ui/FormField";
-import { CATEGORIES } from "@/lib/categories";
+import { receitaCategoryOptions } from "@/lib/categories";
 import {
   initialActionState,
   todayBR,
@@ -38,7 +38,12 @@ function ReceitaForm({
   onDone: () => void;
   initial?: Transaction;
 }) {
-  const { accounts } = useModals();
+  const { accounts, categories } = useModals();
+  const baseOptions = receitaCategoryOptions(categories);
+  const categoryOptions =
+    initial?.categoria && !baseOptions.includes(initial.categoria)
+      ? [initial.categoria, ...baseOptions]
+      : baseOptions;
   const [state, formAction] = useFormState(
     saveReceitaAction,
     initialActionState,
@@ -123,7 +128,7 @@ function ReceitaForm({
           defaultValue={initial?.categoria ?? ""}
         >
           <option value="">Selecione uma categoria</option>
-          {CATEGORIES.map((c) => (
+          {categoryOptions.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

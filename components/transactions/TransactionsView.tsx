@@ -7,7 +7,7 @@ import FilterBar, { FilterGroup } from "@/components/ui/FilterBar";
 import { DataTableWrapper, EmptyRow } from "@/components/ui/DataTable";
 import { DeleteIconButton } from "@/components/ui/DeleteButton";
 import EditButton from "@/components/ui/EditButton";
-import { CATEGORIES } from "@/lib/categories";
+import { filterCategoryOptions } from "@/lib/categories";
 import {
   formatBRL,
   currentMonthBR,
@@ -15,6 +15,7 @@ import {
   nextMonthStart,
 } from "@/features/common/types";
 import { createClient } from "@/lib/supabase/server";
+import { getCategoryNames } from "@/features/categories/queries";
 import { deleteTransactionAction } from "@/features/transactions/actions";
 
 const VISIBLE_COLUMNS = [
@@ -63,6 +64,10 @@ export default async function TransactionsView({
     ? searchParams.mes!
     : currentMonthBR();
 
+  const categoryOptions = filterCategoryOptions(
+    await getCategoryNames(supabase, user.id),
+  );
+
   let query = supabase
     .from("transactions")
     .select(
@@ -95,7 +100,7 @@ export default async function TransactionsView({
                 defaultValue={searchParams.categoria ?? ""}
               >
                 <option value="">Todas</option>
-                {CATEGORIES.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>

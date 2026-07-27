@@ -5,7 +5,6 @@ import { useFormState, useFormStatus } from "react-dom";
 import { Bell } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { FormGroup, FormRow } from "@/components/ui/FormField";
-import { CATEGORIES } from "@/lib/categories";
 import {
   initialActionState,
   todayBR,
@@ -69,7 +68,11 @@ function AgendarForm({
   onDone: () => void;
   initial?: Schedule;
 }) {
-  const { accounts } = useModals();
+  const { accounts, categories } = useModals();
+  const categoryOptions =
+    initial?.categoria && !categories.includes(initial.categoria)
+      ? [initial.categoria, ...categories]
+      : categories;
   const [active, setActive] = useState<Set<string>>(
     () => new Set(initial?.lembretes ?? []),
   );
@@ -195,7 +198,7 @@ function AgendarForm({
             defaultValue={initial?.categoria ?? ""}
           >
             <option value="">Selecione</option>
-            {CATEGORIES.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

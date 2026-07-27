@@ -4,6 +4,78 @@
 -- Idempotent: pode rodar quantas vezes quiser.
 -- =================================================================
 
+-- ==================== categories (categorias gerenciáveis) ====================
+-- Definido no topo para que handle_new_user (adiante) possa semear os defaults.
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  nome text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, nome)
+);
+
+create index if not exists categories_user_id_idx on public.categories(user_id);
+
+alter table public.categories enable row level security;
+
+drop policy if exists "Categories are viewable by owner" on public.categories;
+create policy "Categories are viewable by owner"
+  on public.categories for select using (auth.uid() = user_id);
+
+drop policy if exists "Categories are insertable by owner" on public.categories;
+create policy "Categories are insertable by owner"
+  on public.categories for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Categories are updatable by owner" on public.categories;
+create policy "Categories are updatable by owner"
+  on public.categories for update using (auth.uid() = user_id);
+
+drop policy if exists "Categories are deletable by owner" on public.categories;
+create policy "Categories are deletable by owner"
+  on public.categories for delete using (auth.uid() = user_id);
+
+-- Semeia as categorias padrão para um usuário (idempotente).
+create or replace function public.seed_default_categories(p_user_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.categories (user_id, nome)
+  select p_user_id, nome from (values
+    ('Acordo trabalhista'),
+    ('Advogados'),
+    ('Água'),
+    ('Aluguel'),
+    ('Aluguel impressora'),
+    ('Anuidade conselhos'),
+    ('Assessoria administrativa'),
+    ('Assessoria especializada'),
+    ('Depósito em conta'),
+    ('Despesas de escritório'),
+    ('Energia'),
+    ('Folha de pagamento'),
+    ('Funcionários'),
+    ('Imposto'),
+    ('Internet'),
+    ('Monitoramento'),
+    ('Outros'),
+    ('Pagamento de nota fiscal'),
+    ('Reembolso'),
+    ('Repasse cooperados'),
+    ('Responsável técnico'),
+    ('Seguro'),
+    ('Serviços contábeis'),
+    ('Serviços de limpeza'),
+    ('Software'),
+    ('Tarifas'),
+    ('Telefone')
+  ) as d(nome)
+  on conflict (user_id, nome) do nothing;
+end;
+$$;
+
+
 -- ==================== profiles ====================
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -44,6 +116,10 @@ begin
     coalesce(new.raw_user_meta_data ->> 'full_name', '')
   )
   on conflict (id) do nothing;
+
+  -- Semeia as categorias padrão para o novo usuário.
+  perform public.seed_default_categories(new.id);
+
   return new;
 end;
 $$;
@@ -199,5 +275,19 @@ begin
      s.account_id, s.payment_method, s.payment_details);
 
   update public.schedules set paid_at = now() where id = p_schedule_id;
+end;
+$$;
+
+
+-- ==================== backfill: categorias padrão p/ usuários existentes ====================
+-- Garante que quem já usava o app antes das categorias gerenciáveis receba a
+-- lista padrão. Idempotente (não duplica as que já existem).
+do $$
+declare
+  u record;
+begin
+  for u in select id from auth.users loop
+    perform public.seed_default_categories(u.id);
+  end loop;
 end;
 $$;

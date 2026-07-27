@@ -1,4 +1,17 @@
-export const CATEGORIES = [
+// Categorias especiais com tratamento semântico no código. NÃO são
+// gerenciáveis pelo usuário (removê-las quebraria transferências / saldo).
+export const TRANSFER_CATEGORY = "Transferência entre contas";
+export const SALDO_ANTERIOR_CATEGORY = "Saldo anterior";
+
+/** Nomes reservados que o usuário não pode criar como categoria comum. */
+export const RESERVED_CATEGORIES = [
+  TRANSFER_CATEGORY,
+  SALDO_ANTERIOR_CATEGORY,
+] as const;
+
+// Lista padrão usada para semear novos usuários (espelha o seed do schema.sql)
+// e como fallback caso a busca no banco retorne vazio.
+export const DEFAULT_CATEGORIES = [
   "Acordo trabalhista",
   "Advogados",
   "Água",
@@ -20,7 +33,6 @@ export const CATEGORIES = [
   "Reembolso",
   "Repasse cooperados",
   "Responsável técnico",
-  "Saldo anterior",
   "Seguro",
   "Serviços contábeis",
   "Serviços de limpeza",
@@ -29,12 +41,17 @@ export const CATEGORIES = [
   "Telefone",
 ] as const;
 
-export type Category = (typeof CATEGORIES)[number];
+/** Opções do seletor de categoria numa RECEITA (inclui "Saldo anterior"). */
+export function receitaCategoryOptions(categories: string[]): string[] {
+  return [...categories, SALDO_ANTERIOR_CATEGORY];
+}
 
-export const TRANSFER_CATEGORY = "Transferência entre contas";
-export const SALDO_ANTERIOR_CATEGORY = "Saldo anterior";
+/** Opções do seletor de categoria numa DESPESA (inclui transferência). */
+export function despesaCategoryOptions(categories: string[]): string[] {
+  return [...categories, TRANSFER_CATEGORY];
+}
 
-export const DESPESA_CATEGORY_OPTIONS = [
-  ...CATEGORIES,
-  TRANSFER_CATEGORY,
-] as const;
+/** Opções para filtros de relatórios/listas (inclui as especiais). */
+export function filterCategoryOptions(categories: string[]): string[] {
+  return [...categories, TRANSFER_CATEGORY, SALDO_ANTERIOR_CATEGORY];
+}
