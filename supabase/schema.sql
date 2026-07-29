@@ -180,8 +180,13 @@ alter table public.transactions add column if not exists payment_method text;
 alter table public.transactions add column if not exists payment_details text;
 alter table public.transactions add column if not exists desconto numeric(14, 2) not null default 0;
 alter table public.transactions add column if not exists acrescimo numeric(14, 2) not null default 0;
+-- Identificador da linha do extrato importado (FITID do OFX ou chave
+-- sintetizada). Usado para não importar o mesmo lançamento duas vezes.
+alter table public.transactions add column if not exists import_fitid text;
 
 create index if not exists transactions_user_id_idx on public.transactions(user_id);
+create index if not exists transactions_import_fitid_idx
+  on public.transactions(user_id, account_id, import_fitid);
 create index if not exists transactions_user_type_data_idx
   on public.transactions(user_id, type, data desc);
 create index if not exists transactions_transfer_id_idx on public.transactions(transfer_id);

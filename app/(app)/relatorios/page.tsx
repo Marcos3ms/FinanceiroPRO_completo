@@ -556,7 +556,7 @@ export default async function RelatoriosPage({
                 href={`/api/export?${exportParams.toString()}`}
                 className="btn btn-blue"
               >
-                Exportar CSV
+                Exportar OFX
               </a>
             )}
           </div>

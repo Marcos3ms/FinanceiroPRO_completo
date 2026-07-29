@@ -6,13 +6,7 @@ import {
   nextMonthStart,
   nextDay,
 } from "@/features/common/types";
-
-function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const s = String(value);
-  if (/[",;\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+import { buildOfx, type ExportTxn } from "@/features/import/ofx";
 
 export async function GET(req: NextRequest) {
   const supabase = createClient();
@@ -39,9 +33,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("transactions")
-    .select(
-      "id, type, descricao, valor, data, categoria, desconto, acrescimo, payment_method, payment_details, accounts(nome)",
-    )
+    .select("id, type, descricao, valor, data, categoria")
     .eq("user_id", user.id)
     .order("data", { ascending: true })
     .order("created_at", { ascending: true });
@@ -61,67 +53,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const PAYMENT_LABEL: Record<string, string> = {
-    pix: "PIX",
-    transferencia: "Transferência",
-    boleto: "Boleto",
-    cartao: "Cartão",
-  };
+  const txns: ExportTxn[] = (data ?? []).map((row) => ({
+    id: row.id,
+    type: row.type,
+    valor: Number(row.valor),
+    data: row.data,
+    descricao: row.descricao,
+    categoria: row.categoria,
+  }));
 
-  const fmtNum = (n: number) => n.toFixed(2).replace(".", ",");
-
-  const header = [
-    "Tipo",
-    "Descrição",
-    "Categoria",
-    "Conta",
-    "Data",
-    "Valor Base",
-    "Desconto",
-    "Acréscimo",
-    "Valor",
-    "Forma de Pagamento",
-    "Dados de Pagamento",
-  ];
-  const lines = [header.join(";")];
-
-  for (const row of data ?? []) {
-    const accountName =
-      Array.isArray(row.accounts)
-        ? (row.accounts[0]?.nome ?? "")
-        : ((row.accounts as { nome: string } | null)?.nome ?? "");
-    const paymentLabel = row.payment_method
-      ? (PAYMENT_LABEL[row.payment_method] ?? row.payment_method)
-      : "";
-    const desconto = Number(row.desconto ?? 0);
-    const acrescimo = Number(row.acrescimo ?? 0);
-    const valorFinal = Number(row.valor);
-    const valorBase = valorFinal + desconto - acrescimo;
-    lines.push(
-      [
-        row.type,
-        csvEscape(row.descricao),
-        csvEscape(row.categoria ?? ""),
-        csvEscape(accountName),
-        row.data,
-        fmtNum(valorBase),
-        fmtNum(desconto),
-        fmtNum(acrescimo),
-        fmtNum(valorFinal),
-        csvEscape(paymentLabel),
-        csvEscape(row.payment_details ?? ""),
-      ].join(";"),
-    );
-  }
-
-  const csv = "﻿" + lines.join("\r\n");
+  const ofx = buildOfx(txns);
   const filename = `financeiro-pro-${tipo}-${new Date()
     .toISOString()
-    .slice(0, 10)}.csv`;
+    .slice(0, 10)}.ofx`;
 
-  return new NextResponse(csv, {
+  return new NextResponse(ofx, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/x-ofx; charset=windows-1252",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });

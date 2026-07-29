@@ -10,6 +10,7 @@ import {
   CircleArrowDown,
   BarChart3,
   Calendar,
+  Upload,
   Settings,
   Menu,
   LogOut,
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { href: "/despesas", label: "Despesas", icon: CircleArrowDown },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/agendamentos", label: "Agendamentos", icon: Calendar },
+  { href: "/importar", label: "Importar OFX", icon: Upload },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
