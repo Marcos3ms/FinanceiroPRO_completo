@@ -41,6 +41,7 @@ const PAYMENT_LABEL: Record<string, string> = {
 type SearchParams = {
   categoria?: string;
   mes?: string;
+  account_id?: string;
 };
 
 export default async function TransactionsView({
@@ -64,9 +65,16 @@ export default async function TransactionsView({
     ? searchParams.mes!
     : currentMonthBR();
 
-  const categoryOptions = filterCategoryOptions(
-    await getCategoryNames(supabase, user.id),
-  );
+  const [categoryOptions, { data: accounts }] = await Promise.all([
+    getCategoryNames(supabase, user.id).then(filterCategoryOptions),
+    supabase
+      .from("accounts")
+      .select("id, nome")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const accountId = searchParams.account_id ?? "";
 
   let query = supabase
     .from("transactions")
@@ -81,6 +89,7 @@ export default async function TransactionsView({
     .order("created_at", { ascending: true });
 
   if (searchParams.categoria) query = query.eq("categoria", searchParams.categoria);
+  if (accountId) query = query.eq("account_id", accountId);
 
   const { data: rows } = await query;
   const transactions = rows ?? [];
@@ -93,6 +102,20 @@ export default async function TransactionsView({
       <section className="px-4 pb-8 sm:px-8">
         <form method="get" className="print:hidden">
           <FilterBar>
+            <FilterGroup label="Conta">
+              <select
+                name="account_id"
+                className="form-select"
+                defaultValue={accountId}
+              >
+                <option value="">Todas</option>
+                {(accounts ?? []).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nome}
+                  </option>
+                ))}
+              </select>
+            </FilterGroup>
             <FilterGroup label="Categoria">
               <select
                 name="categoria"

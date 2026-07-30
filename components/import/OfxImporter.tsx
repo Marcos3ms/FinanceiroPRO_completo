@@ -1,18 +1,26 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { Upload, FileText, Check } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Upload, FileText, Check, X } from "lucide-react";
 import { FormGroup } from "@/components/ui/FormField";
 import { formatBRL } from "@/features/common/types";
 import { parseOfx, type OfxTransaction } from "@/features/import/ofx";
-import { importOfxAction, type ImportResult } from "@/features/import/actions";
+import {
+  suggestCategory,
+  type CategoryRule,
+} from "@/features/import/categorize";
+import {
+  importOfxAction,
+  analyzeOfxAction,
+  type ImportResult,
+  type RowStatus,
+} from "@/features/import/actions";
 
 type Account = { id: string; nome: string };
 
 /** Lê o arquivo respeitando o charset declarado no cabeçalho OFX. */
 async function readOfxFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
-  // Peek no cabeçalho em ASCII para descobrir o charset.
   const head = new TextDecoder("ascii").decode(buffer.slice(0, 512)).toUpperCase();
   let label = "windows-1252"; // padrão comum nos bancos BR (OFX 1.x)
   if (head.includes("UTF-8") || head.includes("UNICODE")) label = "utf-8";
@@ -29,35 +37,102 @@ function formatDateBR(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function OfxImporter({ accounts }: { accounts: Account[] }) {
+const STATUS_LABEL: Record<RowStatus, string> = {
+  novo: "Novo",
+  concilia: "Concilia",
+  importado: "Já importado",
+};
+const STATUS_CLASS: Record<RowStatus, string> = {
+  novo: "text-fg-muted",
+  concilia: "text-accent",
+  importado: "text-debit",
+};
+
+export default function OfxImporter({
+  accounts,
+  categories,
+  rules,
+}: {
+  accounts: Account[];
+  categories: string[];
+  rules: CategoryRule[];
+}) {
   const [accountId, setAccountId] = useState("");
   const [fileName, setFileName] = useState("");
   const [content, setContent] = useState("");
   const [txns, setTxns] = useState<OfxTransaction[]>([]);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [categoriaByKey, setCategoriaByKey] = useState<Record<string, string>>(
+    {},
+  );
+  const [statuses, setStatuses] = useState<Record<string, RowStatus>>({});
   const [parseError, setParseError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Analisa contra o banco quando há conta + arquivo (dedup e conciliação).
+  useEffect(() => {
+    if (!content || !accountId || txns.length === 0) {
+      setStatuses({});
+      return;
+    }
+    let active = true;
+    const keys = txns.map((t) => t.key);
+    analyzeOfxAction(content, accountId, keys).then((res) => {
+      if (!active) return;
+      setStatuses(res);
+      // Desmarca por padrão os já importados.
+      setExcluded((prev) => {
+        const next = new Set(prev);
+        for (const k of keys) if (res[k] === "importado") next.add(k);
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [content, accountId, txns]);
+
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     setResult(null);
     setParseError(null);
+    setStatuses({});
     if (!file) return;
     setFileName(file.name);
     const text = await readOfxFile(file);
-    setContent(text);
     const parsed = parseOfx(text);
     if (parsed.length === 0) {
       setTxns([]);
+      setContent("");
       setParseError(
         "Nenhum lançamento encontrado. O arquivo é um extrato OFX válido?",
       );
       return;
     }
+    // Pré-preenche categoria pela memória de regras.
+    const initialCat: Record<string, string> = {};
+    for (const t of parsed) {
+      const s = suggestCategory(t.descricao, rules);
+      if (s) initialCat[t.key] = s;
+    }
+    setContent(text);
     setTxns(parsed);
     setExcluded(new Set());
+    setCategoriaByKey(initialCat);
+  }
+
+  function clearFile() {
+    setFileName("");
+    setContent("");
+    setTxns([]);
+    setExcluded(new Set());
+    setCategoriaByKey({});
+    setStatuses({});
+    setParseError(null);
+    setResult(null);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   const toggle = (key: string) => {
@@ -68,8 +143,12 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
     });
   };
 
-  const selectedKeys = txns.filter((t) => !excluded.has(t.key)).map((t) => t.key);
+  const setCategoria = (key: string, value: string) => {
+    setCategoriaByKey((prev) => ({ ...prev, [key]: value }));
+  };
+
   const selectedTxns = txns.filter((t) => !excluded.has(t.key));
+  const selectedKeys = selectedTxns.map((t) => t.key);
   const totalCredito = selectedTxns
     .filter((t) => t.type === "receita")
     .reduce((s, t) => s + t.valor, 0);
@@ -79,24 +158,26 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
 
   function doImport() {
     setResult(null);
+    const catByKey: Record<string, string> = {};
+    for (const k of selectedKeys) {
+      if (categoriaByKey[k]) catByKey[k] = categoriaByKey[k];
+    }
     startTransition(async () => {
-      const res = await importOfxAction(content, accountId, selectedKeys);
+      const res = await importOfxAction(
+        content,
+        accountId,
+        selectedKeys,
+        catByKey,
+      );
       setResult(res);
-      if (res.ok) {
-        setTxns([]);
-        setContent("");
-        setFileName("");
-        if (fileRef.current) fileRef.current.value = "";
-      }
+      if (res.ok) clearFile();
     });
   }
 
-  const canImport =
-    !!accountId && selectedKeys.length > 0 && !pending;
+  const canImport = !!accountId && selectedKeys.length > 0 && !pending;
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Passo 1: conta + arquivo */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormGroup label="Conta de destino" htmlFor="import-conta">
           <select
@@ -134,6 +215,14 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
               · {txns.length} lançamento(s) encontrado(s)
             </span>
           )}
+          <button
+            type="button"
+            onClick={clearFile}
+            disabled={pending}
+            className="ml-1 inline-flex items-center gap-1 text-[0.78rem] text-fg-muted underline-offset-2 transition-colors hover:text-debit hover:underline disabled:opacity-50"
+          >
+            <X className="h-3.5 w-3.5" /> Descartar
+          </button>
         </div>
       )}
 
@@ -150,9 +239,12 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
           {result.ok ? (
             <span className="flex items-center gap-2">
               <Check className="h-4 w-4" />
-              {result.imported} lançamento(s) importado(s).
+              {result.imported} importado(s)
+              {result.reconciled > 0 &&
+                `, ${result.reconciled} conciliado(s)`}
               {result.duplicated > 0 &&
-                ` ${result.duplicated} já existia(m) e foram ignorados.`}
+                `, ${result.duplicated} já existia(m)`}
+              .
             </span>
           ) : (
             result.error
@@ -160,17 +252,14 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
         </div>
       )}
 
-      {/* Passo 2: prévia */}
       {txns.length > 0 && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-[0.85rem] text-fg-secondary">
-              Revise e desmarque o que não quer importar.
+              Revise, ajuste a categoria e desmarque o que não quer importar.
             </div>
             <div className="num-mono flex gap-4 text-[0.8rem]">
-              <span className="text-credit">
-                + {formatBRL(totalCredito)}
-              </span>
+              <span className="text-credit">+ {formatBRL(totalCredito)}</span>
               <span className="text-debit">− {formatBRL(totalDebito)}</span>
             </div>
           </div>
@@ -179,23 +268,24 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className="border-b border-border bg-bg-elevated px-3 py-2 text-left text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
-                    Importar
-                  </th>
-                  <th className="border-b border-border bg-bg-elevated px-3 py-2 text-left text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
-                    Data
-                  </th>
-                  <th className="border-b border-border bg-bg-elevated px-3 py-2 text-left text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
-                    Descrição
-                  </th>
-                  <th className="border-b border-border bg-bg-elevated px-3 py-2 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
-                    Valor
-                  </th>
+                  {["", "Data", "Descrição", "Categoria", "Situação", "Valor"].map(
+                    (h, i) => (
+                      <th
+                        key={i}
+                        className={`border-b border-border bg-bg-elevated px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted ${
+                          h === "Valor" ? "text-right" : "text-left"
+                        }`}
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {txns.map((t) => {
                   const on = !excluded.has(t.key);
+                  const status = statuses[t.key];
                   return (
                     <tr key={t.key} className={on ? "" : "opacity-40"}>
                       <td className="border-b border-border px-3 py-2">
@@ -212,6 +302,29 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
                       <td className="border-b border-border px-3 py-2 text-[0.85rem] text-fg-primary">
                         {t.descricao}
                       </td>
+                      <td className="border-b border-border px-3 py-2">
+                        <select
+                          value={categoriaByKey[t.key] ?? ""}
+                          onChange={(e) => setCategoria(t.key, e.target.value)}
+                          className="form-select !py-1 text-[0.8rem]"
+                        >
+                          <option value="">—</option>
+                          {categories.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="border-b border-border px-3 py-2 text-[0.72rem]">
+                        {status ? (
+                          <span className={STATUS_CLASS[status]}>
+                            {STATUS_LABEL[status]}
+                          </span>
+                        ) : (
+                          <span className="text-fg-muted">—</span>
+                        )}
+                      </td>
                       <td
                         className={`num-mono border-b border-border px-3 py-2 text-right text-[0.85rem] font-medium tabular-nums ${
                           t.type === "receita" ? "text-credit" : "text-debit"
@@ -227,21 +340,31 @@ export default function OfxImporter({ accounts }: { accounts: Account[] }) {
             </table>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-[0.8rem] text-fg-muted">
               {selectedKeys.length} de {txns.length} selecionado(s)
             </span>
-            <button
-              type="button"
-              onClick={doImport}
-              disabled={!canImport}
-              className="btn btn-green disabled:opacity-50"
-            >
-              <Upload className="h-4 w-4" />
-              {pending
-                ? "Importando..."
-                : `Importar ${selectedKeys.length} lançamento(s)`}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={clearFile}
+                disabled={pending}
+                className="btn btn-outline disabled:opacity-50"
+              >
+                <X className="h-4 w-4" /> Excluir arquivo
+              </button>
+              <button
+                type="button"
+                onClick={doImport}
+                disabled={!canImport}
+                className="btn btn-green disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4" />
+                {pending
+                  ? "Importando..."
+                  : `Importar ${selectedKeys.length} lançamento(s)`}
+              </button>
+            </div>
           </div>
           {!accountId && (
             <p className="text-right text-[0.78rem] text-debit">

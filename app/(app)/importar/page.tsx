@@ -3,6 +3,8 @@ import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
 import OfxImporter from "@/components/import/OfxImporter";
 import { createClient } from "@/lib/supabase/server";
+import { getCategoryNames } from "@/features/categories/queries";
+import { getCategoryRules } from "@/features/import/queries";
 
 export const metadata = { title: "Importar extrato - FinanceiroPro" };
 
@@ -13,11 +15,15 @@ export default async function ImportarPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("id, nome")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
+  const [{ data: accounts }, categories, rules] = await Promise.all([
+    supabase
+      .from("accounts")
+      .select("id, nome")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true }),
+    getCategoryNames(supabase, user.id),
+    getCategoryRules(supabase, user.id),
+  ]);
 
   return (
     <>
@@ -36,7 +42,11 @@ export default async function ImportarPage() {
               extrato.
             </p>
           ) : (
-            <OfxImporter accounts={accounts ?? []} />
+            <OfxImporter
+              accounts={accounts ?? []}
+              categories={categories}
+              rules={rules}
+            />
           )}
           <div className="mt-6 border-t border-border pt-4 text-[0.78rem] text-fg-muted">
             <p className="mb-1 font-semibold text-fg-secondary">Como obter o OFX</p>

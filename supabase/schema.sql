@@ -76,6 +76,39 @@ end;
 $$;
 
 
+-- ==================== category_rules (memória de categorização OFX) ====================
+-- Guarda "descrição normalizada -> categoria" aprendida nas importações, para
+-- pré-preencher a categoria automaticamente nas próximas.
+create table if not exists public.category_rules (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  pattern text not null,
+  categoria text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, pattern)
+);
+
+create index if not exists category_rules_user_id_idx on public.category_rules(user_id);
+
+alter table public.category_rules enable row level security;
+
+drop policy if exists "Category rules are viewable by owner" on public.category_rules;
+create policy "Category rules are viewable by owner"
+  on public.category_rules for select using (auth.uid() = user_id);
+
+drop policy if exists "Category rules are insertable by owner" on public.category_rules;
+create policy "Category rules are insertable by owner"
+  on public.category_rules for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Category rules are updatable by owner" on public.category_rules;
+create policy "Category rules are updatable by owner"
+  on public.category_rules for update using (auth.uid() = user_id);
+
+drop policy if exists "Category rules are deletable by owner" on public.category_rules;
+create policy "Category rules are deletable by owner"
+  on public.category_rules for delete using (auth.uid() = user_id);
+
+
 -- ==================== profiles ====================
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
