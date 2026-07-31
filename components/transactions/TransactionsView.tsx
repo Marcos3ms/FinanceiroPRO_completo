@@ -95,6 +95,32 @@ export default async function TransactionsView({
   const transactions = rows ?? [];
   const basePath = type === "receita" ? "/receitas" : "/despesas";
 
+  // Para transferências, descobre as contas de origem (perna despesa) e
+  // destino (perna receita) buscando as duas pernas pelo transfer_id.
+  const transferIds = Array.from(
+    new Set(transactions.map((t) => t.transfer_id).filter(Boolean)),
+  ) as string[];
+  const transferPairs = new Map<
+    string,
+    { origem: string | null; destino: string | null }
+  >();
+  if (transferIds.length > 0) {
+    const { data: legs } = await supabase
+      .from("transactions")
+      .select("transfer_id, type, account_id")
+      .eq("user_id", user.id)
+      .in("transfer_id", transferIds);
+    for (const leg of legs ?? []) {
+      const p = transferPairs.get(leg.transfer_id) ?? {
+        origem: null,
+        destino: null,
+      };
+      if (leg.type === "despesa") p.origem = leg.account_id;
+      else p.destino = leg.account_id;
+      transferPairs.set(leg.transfer_id, p);
+    }
+  }
+
   return (
     <>
       <PageHeader title={title} subtitle={subtitle} actions={<HeaderActions />} />
@@ -243,6 +269,14 @@ export default async function TransactionsView({
                               acrescimo: Number(t.acrescimo ?? 0),
                               payment_method: t.payment_method ?? null,
                               payment_details: t.payment_details ?? null,
+                              transfer_origem_id: t.transfer_id
+                                ? (transferPairs.get(t.transfer_id)?.origem ??
+                                  null)
+                                : null,
+                              transfer_destino_id: t.transfer_id
+                                ? (transferPairs.get(t.transfer_id)?.destino ??
+                                  null)
+                                : null,
                             },
                           }}
                         />

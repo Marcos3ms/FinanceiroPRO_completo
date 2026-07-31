@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Modal from "@/components/ui/Modal";
 import { FormGroup, FormRow } from "@/components/ui/FormField";
-import { receitaCategoryOptions } from "@/lib/categories";
+import TransferAccountsFields from "@/components/modals/TransferAccountsFields";
+import { receitaCategoryOptions, TRANSFER_CATEGORY } from "@/lib/categories";
 import {
   initialActionState,
   todayBR,
@@ -39,6 +40,7 @@ function ReceitaForm({
   initial?: Transaction;
 }) {
   const { accounts, categories } = useModals();
+  const isEditTransfer = !!initial?.transfer_id;
   const baseOptions = receitaCategoryOptions(categories);
   const categoryOptions =
     initial?.categoria && !baseOptions.includes(initial.categoria)
@@ -61,13 +63,21 @@ function ReceitaForm({
     <form ref={formRef} action={formAction}>
       {initial && <input type="hidden" name="id" value={initial.id} />}
 
+      {isEditTransfer && (
+        <p className="mb-4 rounded border border-border bg-bg-elevated px-3 py-2 text-[0.8rem] text-fg-secondary">
+          Numa transferência só é possível alterar as contas de origem e
+          destino. Descrição, valor e data ficam inalterados.
+        </p>
+      )}
+
       <FormGroup label="Descrição" htmlFor="receita-descricao">
         <input
           id="receita-descricao"
           name="descricao"
           type="text"
           required
-          className="form-input"
+          disabled={isEditTransfer}
+          className="form-input disabled:opacity-60"
           placeholder="Ex: Aluguel, Supermercado..."
           defaultValue={initial?.descricao ?? ""}
         />
@@ -80,7 +90,8 @@ function ReceitaForm({
             name="valor"
             type="text"
             required
-            className="form-input"
+            disabled={isEditTransfer}
+            className="form-input disabled:opacity-60"
             placeholder="0,00"
             inputMode="decimal"
             defaultValue={
@@ -98,43 +109,58 @@ function ReceitaForm({
             name="data"
             type="date"
             required
-            className="form-input"
+            disabled={isEditTransfer}
+            className="form-input disabled:opacity-60"
             defaultValue={initial?.data ?? todayBR()}
           />
         </FormGroup>
       </FormRow>
 
-      <FormGroup label="Conta" htmlFor="receita-conta">
-        <select
-          id="receita-conta"
-          name="account_id"
-          className="form-select"
-          defaultValue={initial?.account_id ?? ""}
-        >
-          <option value="">Selecione</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.nome}
-            </option>
-          ))}
-        </select>
-      </FormGroup>
+      {isEditTransfer ? (
+        <>
+          <TransferAccountsFields
+            accounts={accounts}
+            idPrefix="receita"
+            origemDefault={initial?.transfer_origem_id ?? ""}
+            destinoDefault={initial?.transfer_destino_id ?? ""}
+          />
+          <input type="hidden" name="categoria" value={TRANSFER_CATEGORY} />
+        </>
+      ) : (
+        <>
+          <FormGroup label="Conta" htmlFor="receita-conta">
+            <select
+              id="receita-conta"
+              name="account_id"
+              className="form-select"
+              defaultValue={initial?.account_id ?? ""}
+            >
+              <option value="">Selecione</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome}
+                </option>
+              ))}
+            </select>
+          </FormGroup>
 
-      <FormGroup label="Categoria" htmlFor="receita-categoria">
-        <select
-          id="receita-categoria"
-          name="categoria"
-          className="form-select"
-          defaultValue={initial?.categoria ?? ""}
-        >
-          <option value="">Selecione uma categoria</option>
-          {categoryOptions.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </FormGroup>
+          <FormGroup label="Categoria" htmlFor="receita-categoria">
+            <select
+              id="receita-categoria"
+              name="categoria"
+              className="form-select"
+              defaultValue={initial?.categoria ?? ""}
+            >
+              <option value="">Selecione uma categoria</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </FormGroup>
+        </>
+      )}
 
       {state.error && (
         <p className="mb-3 rounded border border-brand-red-border bg-brand-red-bg px-3 py-2 text-sm text-brand-red">

@@ -13,11 +13,88 @@ const VALID_PAYMENT_METHODS = new Set([
   "cartao",
 ]);
 
+/**
+ * Edição de transferência: só permite trocar as contas de origem e destino.
+ * Descrição, valor e data ficam inalterados (as duas pernas são preservadas).
+ */
+async function updateTransferAccounts(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  transferId: string,
+  formData: FormData,
+): Promise<ActionState> {
+  const origem = String(formData.get("account_origem") ?? "").trim();
+  const destino = String(formData.get("account_destino") ?? "").trim();
+
+  if (!origem) return { error: "Selecione a conta de origem.", ok: false };
+  if (!destino) return { error: "Selecione a conta de destino.", ok: false };
+  if (origem === destino)
+    return {
+      error: "Conta de origem e destino devem ser diferentes.",
+      ok: false,
+    };
+
+  // Garante que as duas contas pertencem ao usuário.
+  const { data: owned } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("user_id", userId)
+    .in("id", [origem, destino]);
+  if (!owned || owned.length < 2)
+    return { error: "Conta inválida.", ok: false };
+
+  // Perna de saída (despesa) -> origem; perna de entrada (receita) -> destino.
+  const { error: e1 } = await supabase
+    .from("transactions")
+    .update({ account_id: origem })
+    .eq("transfer_id", transferId)
+    .eq("type", "despesa")
+    .eq("user_id", userId);
+  if (e1) return { error: e1.message, ok: false };
+
+  const { error: e2 } = await supabase
+    .from("transactions")
+    .update({ account_id: destino })
+    .eq("transfer_id", transferId)
+    .eq("type", "receita")
+    .eq("user_id", userId);
+  if (e2) return { error: e2.message, ok: false };
+
+  revalidatePath("/", "layout");
+  return { error: null, ok: true };
+}
+
 async function saveTransaction(
   type: "receita" | "despesa",
   formData: FormData,
 ): Promise<ActionState> {
   const id = String(formData.get("id") ?? "").trim();
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessão expirada.", ok: false };
+
+  // Edição de transferência é tratada à parte (só origem/destino).
+  if (id) {
+    const { data: existing } = await supabase
+      .from("transactions")
+      .select("transfer_id")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!existing) return { error: "Lançamento não encontrado.", ok: false };
+    if (existing.transfer_id) {
+      return updateTransferAccounts(
+        supabase,
+        user.id,
+        existing.transfer_id,
+        formData,
+      );
+    }
+  }
+
   const descricao = String(formData.get("descricao") ?? "").trim();
   const valorBruto = parseValor(String(formData.get("valor") ?? ""));
   const data = String(formData.get("data") ?? "");
@@ -53,12 +130,6 @@ async function saveTransaction(
   const valor = Math.max(valorBruto - desconto + acrescimo, 0);
   if (valor <= 0)
     return { error: "O valor final após desconto/acréscimo deve ser maior que zero.", ok: false };
-
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessão expirada.", ok: false };
 
   // Transferência entre contas: cria duas transações vinculadas (apenas no create)
   if (type === "despesa" && categoria === TRANSFER_CATEGORY && !id) {
@@ -117,40 +188,13 @@ async function saveTransaction(
   };
 
   if (id) {
-    // Confirma a posse e descobre se o lançamento faz parte de uma transferência.
-    const { data: existing } = await supabase
+    // Edição normal (transferências já foram tratadas acima e retornaram).
+    const { error } = await supabase
       .from("transactions")
-      .select("transfer_id")
+      .update(payload)
       .eq("id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!existing) return { error: "Lançamento não encontrado.", ok: false };
-
-    if (existing.transfer_id) {
-      // Transferência: atualiza as duas pernas para mantê-las sincronizadas.
-      // A perna editada também recebe a própria conta; a outra mantém a dela.
-      const { error: selfError } = await supabase
-        .from("transactions")
-        .update({ descricao, valor, data, account_id: accountId })
-        .eq("id", id)
-        .eq("user_id", user.id);
-      if (selfError) return { error: selfError.message, ok: false };
-
-      const { error: pairError } = await supabase
-        .from("transactions")
-        .update({ descricao, valor, data })
-        .eq("transfer_id", existing.transfer_id)
-        .eq("user_id", user.id)
-        .neq("id", id);
-      if (pairError) return { error: pairError.message, ok: false };
-    } else {
-      const { error } = await supabase
-        .from("transactions")
-        .update(payload)
-        .eq("id", id)
-        .eq("user_id", user.id);
-      if (error) return { error: error.message, ok: false };
-    }
+      .eq("user_id", user.id);
+    if (error) return { error: error.message, ok: false };
   } else {
     const { error } = await supabase
       .from("transactions")

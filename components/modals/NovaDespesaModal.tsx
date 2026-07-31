@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Modal from "@/components/ui/Modal";
 import { FormGroup, FormRow } from "@/components/ui/FormField";
+import TransferAccountsFields from "@/components/modals/TransferAccountsFields";
 import { despesaCategoryOptions, TRANSFER_CATEGORY } from "@/lib/categories";
 import {
   initialActionState,
@@ -92,7 +93,9 @@ function DespesaForm({
 
   const [categoria, setCategoria] = useState<string>(initial?.categoria ?? "");
   const isTransferSelected = categoria === TRANSFER_CATEGORY;
-  const showTransferFields = isTransferSelected && !isEditing;
+  // Origem/destino aparecem tanto na criação de transferência quanto na
+  // edição de uma transferência existente.
+  const showTransferAccounts = isTransferSelected;
 
   const [paymentMethod, setPaymentMethod] = useState<string>(
     initial?.payment_method ?? "",
@@ -162,13 +165,21 @@ function DespesaForm({
     <form ref={formRef} action={formAction}>
       {initial && <input type="hidden" name="id" value={initial.id} />}
 
+      {isEditTransfer && (
+        <p className="mb-4 rounded border border-border bg-bg-elevated px-3 py-2 text-[0.8rem] text-fg-secondary">
+          Numa transferência só é possível alterar as contas de origem e
+          destino. Descrição, valor e data ficam inalterados.
+        </p>
+      )}
+
       <FormGroup label="Descrição" htmlFor="despesa-descricao">
         <input
           id="despesa-descricao"
           name="descricao"
           type="text"
           required
-          className="form-input"
+          disabled={isEditTransfer}
+          className="form-input disabled:opacity-60"
           placeholder="Ex: Aluguel, Supermercado..."
           defaultValue={initial?.descricao ?? ""}
         />
@@ -181,7 +192,8 @@ function DespesaForm({
             name="valor"
             type="text"
             required
-            className="form-input"
+            disabled={isEditTransfer}
+            className="form-input disabled:opacity-60"
             placeholder="0,00"
             inputMode="decimal"
             value={valorStr}
@@ -194,7 +206,8 @@ function DespesaForm({
             name="data"
             type="date"
             required
-            className="form-input"
+            disabled={isEditTransfer}
+            className="form-input disabled:opacity-60"
             defaultValue={initial?.data ?? todayBR()}
           />
         </FormGroup>
@@ -278,7 +291,7 @@ function DespesaForm({
         </div>
       )}
 
-      {!showTransferFields && (
+      {!showTransferAccounts && (
         <FormGroup label="Conta" htmlFor="despesa-conta">
           <select
             id="despesa-conta"
@@ -353,44 +366,16 @@ function DespesaForm({
         </>
       )}
 
-      {showTransferFields && (
-        <FormRow>
-          <FormGroup label="Conta Origem" htmlFor="despesa-origem">
-            <select
-              id="despesa-origem"
-              name="account_origem"
-              className="form-select"
-              defaultValue=""
-              required
-            >
-              <option value="">Selecione</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nome}
-                </option>
-              ))}
-            </select>
-          </FormGroup>
-          <FormGroup label="Conta Destino" htmlFor="despesa-destino">
-            <select
-              id="despesa-destino"
-              name="account_destino"
-              className="form-select"
-              defaultValue=""
-              required
-            >
-              <option value="">Selecione</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nome}
-                </option>
-              ))}
-            </select>
-          </FormGroup>
-        </FormRow>
+      {showTransferAccounts && (
+        <TransferAccountsFields
+          accounts={accounts}
+          idPrefix="despesa"
+          origemDefault={initial?.transfer_origem_id ?? ""}
+          destinoDefault={initial?.transfer_destino_id ?? ""}
+        />
       )}
 
-      {showTransferFields && accounts.length < 2 && (
+      {showTransferAccounts && accounts.length < 2 && (
         <p className="mb-3 rounded border border-border bg-bg-elevated px-3 py-2 text-[0.8rem] text-fg-secondary">
           Cadastre ao menos duas contas em <strong>Contas</strong> para fazer
           uma transferência.
@@ -403,7 +388,7 @@ function DespesaForm({
         </p>
       )}
 
-      <SubmitBtn editing={isEditing} isTransfer={showTransferFields} />
+      <SubmitBtn editing={isEditing} isTransfer={showTransferAccounts} />
     </form>
   );
 }

@@ -25,6 +25,9 @@ export type Transaction = {
   payment_method?: PaymentMethod | null;
   payment_details?: string | null;
   account?: { nome: string } | null;
+  // Para transferências: conta da perna de saída (despesa) e de entrada (receita).
+  transfer_origem_id?: string | null;
+  transfer_destino_id?: string | null;
 };
 
 export type Schedule = {
