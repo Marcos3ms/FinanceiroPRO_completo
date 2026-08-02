@@ -1,28 +1,45 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { parseOfx, type OfxTransaction } from "@/features/import/ofx";
+import { parseOfx } from "@/features/import/ofx";
 import { normalizeDescricao } from "@/features/import/categorize";
 import { getCategoryNames } from "@/features/categories/queries";
+import { TRANSFER_CATEGORY } from "@/lib/categories";
+import {
+  classifyOfxRows,
+  type ExistingTxn,
+  type ParsedRow,
+  type RowStatus,
+} from "@/features/import/classify";
 
-export type RowStatus = "novo" | "importado" | "concilia";
+export type { RowStatus };
+
+/** Resultado da análise por linha (para exibir na prévia). */
+export type AnalyzedRow = {
+  status: RowStatus;
+  /** Nome da conta da contraparte, quando for transferência. */
+  counterpartName?: string;
+};
 
 export type ImportResult = {
   ok: boolean;
   error: string | null;
   imported: number;
   reconciled: number;
+  transfers: number;
   duplicated: number;
 };
 
-function valorCents(v: number): number {
-  return Math.round(v * 100);
-}
-
-function matchKey(data: string, type: string, valor: number): string {
-  return `${data}|${type}|${valorCents(valor)}`;
-}
+const emptyResult = (error: string | null): ImportResult => ({
+  ok: false,
+  error,
+  imported: 0,
+  reconciled: 0,
+  transfers: 0,
+  duplicated: 0,
+});
 
 async function requireAccount(
   supabase: ReturnType<typeof createClient>,
@@ -39,16 +56,63 @@ async function requireAccount(
 }
 
 /**
- * Analisa o extrato contra o que já existe na conta, sem gravar nada:
+ * Busca os FITIDs já importados na conta e os lançamentos existentes (sem
+ * transfer_id) do usuário no intervalo do extrato, para classificação.
+ */
+async function loadContext(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  accountId: string,
+  parsed: ParsedRow[],
+): Promise<{ importedFitids: Set<string>; existing: ExistingTxn[] }> {
+  const { data: importedRows } = await supabase
+    .from("transactions")
+    .select("import_fitid")
+    .eq("user_id", userId)
+    .eq("account_id", accountId)
+    .not("import_fitid", "is", null);
+  const importedFitids = new Set(
+    (importedRows ?? []).map((r) => r.import_fitid as string),
+  );
+
+  const datas = parsed.map((t) => t.data).sort();
+  // Lançamentos que ainda não fazem parte de uma transferência, no intervalo.
+  // Mesma conta (sem import_fitid) -> conciliação; outras contas -> transferência.
+  const { data: existingRows } = await supabase
+    .from("transactions")
+    .select("id, account_id, type, valor, data, import_fitid")
+    .eq("user_id", userId)
+    .is("transfer_id", null)
+    .gte("data", datas[0])
+    .lte("data", datas[datas.length - 1]);
+
+  return { importedFitids, existing: (existingRows ?? []) as ExistingTxn[] };
+}
+
+function toParsedRows(
+  parsed: { key: string; type: "receita" | "despesa"; valor: number; data: string }[],
+): ParsedRow[] {
+  return parsed.map((t) => ({
+    key: t.key,
+    type: t.type,
+    valor: t.valor,
+    data: t.data,
+  }));
+}
+
+/**
+ * Analisa o extrato contra o que já existe, sem gravar nada:
  * - "importado": FITID já importado antes (será ignorado).
- * - "concilia": casa com um lançamento existente feito à mão (será vinculado).
+ * - "concilia": casa com um lançamento manual da MESMA conta (será vinculado).
+ * - "transferencia": casa com um lançamento de tipo OPOSTO em OUTRA conta
+ *   (as duas pernas viram uma transferência).
  * - "novo": lançamento novo (será inserido).
  */
 export async function analyzeOfxAction(
   content: string,
   accountId: string,
   keys: string[],
-): Promise<Record<string, RowStatus>> {
+): Promise<Record<string, AnalyzedRow>> {
   const supabase = createClient();
   const {
     data: { user },
@@ -57,58 +121,50 @@ export async function analyzeOfxAction(
   if (!(await requireAccount(supabase, user.id, accountId))) return {};
 
   const selected = new Set(keys);
-  const parsed = parseOfx(content).filter((t) => selected.has(t.key));
+  const parsed = toParsedRows(parseOfx(content).filter((t) => selected.has(t.key)));
   if (parsed.length === 0) return {};
 
-  // FITIDs já importados nessa conta.
-  const { data: importedRows } = await supabase
-    .from("transactions")
-    .select("import_fitid")
-    .eq("user_id", user.id)
-    .eq("account_id", accountId)
-    .not("import_fitid", "is", null);
-  const importedFitids = new Set(
-    (importedRows ?? []).map((r) => r.import_fitid as string),
+  const { importedFitids, existing } = await loadContext(
+    supabase,
+    user.id,
+    accountId,
+    parsed,
   );
 
-  // Lançamentos manuais (sem import_fitid) no intervalo do extrato.
-  const datas = parsed.map((t) => t.data).sort();
-  const { data: manualRows } = await supabase
-    .from("transactions")
-    .select("id, data, valor, type")
-    .eq("user_id", user.id)
-    .eq("account_id", accountId)
-    .is("import_fitid", null)
-    .gte("data", datas[0])
-    .lte("data", datas[datas.length - 1]);
+  // Nomes das contas, para exibir a contraparte de uma transferência.
+  const { data: accts } = await supabase
+    .from("accounts")
+    .select("id, nome")
+    .eq("user_id", user.id);
+  const acctName = new Map((accts ?? []).map((a) => [a.id, a.nome as string]));
+  const acctOf = new Map(existing.map((e) => [e.id, e.account_id]));
 
-  const manualCount = new Map<string, number>();
-  for (const r of manualRows ?? []) {
-    const k = matchKey(r.data, r.type, Number(r.valor));
-    manualCount.set(k, (manualCount.get(k) ?? 0) + 1);
-  }
+  const classification = classifyOfxRows(
+    parsed,
+    accountId,
+    importedFitids,
+    existing,
+  );
 
-  const statuses: Record<string, RowStatus> = {};
-  for (const t of parsed) {
-    if (importedFitids.has(t.key)) {
-      statuses[t.key] = "importado";
-      continue;
-    }
-    const k = matchKey(t.data, t.type, t.valor);
-    const avail = manualCount.get(k) ?? 0;
-    if (avail > 0) {
-      manualCount.set(k, avail - 1);
-      statuses[t.key] = "concilia";
+  const out: Record<string, AnalyzedRow> = {};
+  for (const [key, c] of classification) {
+    if (c.status === "transferencia" && c.counterpartId) {
+      const otherAcct = acctOf.get(c.counterpartId) ?? null;
+      out[key] = {
+        status: c.status,
+        counterpartName: otherAcct ? acctName.get(otherAcct) : undefined,
+      };
     } else {
-      statuses[t.key] = "novo";
+      out[key] = { status: c.status };
     }
   }
-  return statuses;
+  return out;
 }
 
 /**
- * Importa o extrato: insere os novos, concilia (vincula) os que já existiam à
- * mão, ignora os já importados, e aprende as categorias escolhidas.
+ * Importa o extrato: insere os novos, concilia os que já existiam à mão,
+ * vincula transferências entre contas, ignora os já importados, e aprende as
+ * categorias escolhidas.
  */
 export async function importOfxAction(
   content: string,
@@ -120,41 +176,17 @@ export async function importOfxAction(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
-    return {
-      ok: false,
-      error: "Sessão expirada.",
-      imported: 0,
-      reconciled: 0,
-      duplicated: 0,
-    };
-  if (!accountId)
-    return {
-      ok: false,
-      error: "Selecione a conta.",
-      imported: 0,
-      reconciled: 0,
-      duplicated: 0,
-    };
+  if (!user) return emptyResult("Sessão expirada.");
+  if (!accountId) return emptyResult("Selecione a conta.");
   if (!(await requireAccount(supabase, user.id, accountId)))
-    return {
-      ok: false,
-      error: "Conta inválida.",
-      imported: 0,
-      reconciled: 0,
-      duplicated: 0,
-    };
+    return emptyResult("Conta inválida.");
 
   const selected = new Set(selectedKeys);
-  const parsed = parseOfx(content).filter((t) => selected.has(t.key));
-  if (parsed.length === 0)
-    return {
-      ok: false,
-      error: "Nenhum lançamento selecionado.",
-      imported: 0,
-      reconciled: 0,
-      duplicated: 0,
-    };
+  const parsedFull = parseOfx(content).filter((t) => selected.has(t.key));
+  if (parsedFull.length === 0)
+    return emptyResult("Nenhum lançamento selecionado.");
+  const parsed = toParsedRows(parsedFull);
+  const rowByKey = new Map(parsedFull.map((t) => [t.key, t]));
 
   // Categorias válidas do usuário (para não gravar nome arbitrário).
   const validCategorias = new Set(await getCategoryNames(supabase, user.id));
@@ -163,81 +195,62 @@ export async function importOfxAction(
     return c && validCategorias.has(c) ? c : null;
   };
 
-  // FITIDs já importados → ignorar.
-  const { data: importedRows } = await supabase
-    .from("transactions")
-    .select("import_fitid")
-    .eq("user_id", user.id)
-    .eq("account_id", accountId)
-    .not("import_fitid", "is", null);
-  const importedFitids = new Set(
-    (importedRows ?? []).map((r) => r.import_fitid as string),
+  const { importedFitids, existing } = await loadContext(
+    supabase,
+    user.id,
+    accountId,
+    parsed,
   );
 
-  // Lançamentos manuais para conciliação (id disponível para vincular).
-  const datas = parsed.map((t) => t.data).sort();
-  const { data: manualRows } = await supabase
-    .from("transactions")
-    .select("id, data, valor, type")
-    .eq("user_id", user.id)
-    .eq("account_id", accountId)
-    .is("import_fitid", null)
-    .gte("data", datas[0])
-    .lte("data", datas[datas.length - 1]);
+  const classification = classifyOfxRows(
+    parsed,
+    accountId,
+    importedFitids,
+    existing,
+  );
 
-  const manualByKey = new Map<string, string[]>();
-  for (const r of manualRows ?? []) {
-    const k = matchKey(r.data, r.type, Number(r.valor));
-    const list = manualByKey.get(k) ?? [];
-    list.push(r.id as string);
-    manualByKey.set(k, list);
-  }
-
-  const toInsert: (OfxTransaction & { categoria: string | null })[] = [];
+  const toInsert: { key: string; categoria: string | null }[] = [];
   const toReconcile: { id: string; key: string; categoria: string | null }[] =
     [];
+  const toTransfer: { key: string; counterpartId: string }[] = [];
   let duplicated = 0;
 
-  for (const t of parsed) {
-    if (importedFitids.has(t.key)) {
+  for (const [key, c] of classification) {
+    if (c.status === "importado") {
       duplicated++;
-      continue;
-    }
-    const k = matchKey(t.data, t.type, t.valor);
-    const pool = manualByKey.get(k);
-    if (pool && pool.length > 0) {
-      const id = pool.shift()!;
-      toReconcile.push({ id, key: t.key, categoria: categoriaFor(t.key) });
+    } else if (c.status === "concilia" && c.counterpartId) {
+      toReconcile.push({
+        id: c.counterpartId,
+        key,
+        categoria: categoriaFor(key),
+      });
+    } else if (c.status === "transferencia" && c.counterpartId) {
+      toTransfer.push({ key, counterpartId: c.counterpartId });
     } else {
-      toInsert.push({ ...t, categoria: categoriaFor(t.key) });
+      toInsert.push({ key, categoria: categoriaFor(key) });
     }
   }
 
   // Insere os novos.
   if (toInsert.length > 0) {
-    const rows = toInsert.map((t) => ({
-      user_id: user.id,
-      type: t.type,
-      descricao: t.descricao,
-      valor: t.valor,
-      data: t.data,
-      categoria: t.categoria,
-      account_id: accountId,
-      import_fitid: t.key,
-    }));
-    const { error } = await supabase.from("transactions").insert(rows);
-    if (error)
+    const rows = toInsert.map(({ key, categoria }) => {
+      const t = rowByKey.get(key)!;
       return {
-        ok: false,
-        error: error.message,
-        imported: 0,
-        reconciled: 0,
-        duplicated,
+        user_id: user.id,
+        type: t.type,
+        descricao: t.descricao,
+        valor: t.valor,
+        data: t.data,
+        categoria,
+        account_id: accountId,
+        import_fitid: t.key,
       };
+    });
+    const { error } = await supabase.from("transactions").insert(rows);
+    if (error) return { ...emptyResult(error.message), duplicated };
   }
 
-  // Concilia: vincula o FITID ao lançamento manual existente (e completa a
-  // categoria se o usuário escolheu uma).
+  // Concilia: vincula o FITID ao lançamento manual existente.
   for (const r of toReconcile) {
     const patch: Record<string, unknown> = { import_fitid: r.key };
     if (r.categoria) patch.categoria = r.categoria;
@@ -248,16 +261,38 @@ export async function importOfxAction(
       .eq("user_id", user.id);
   }
 
+  // Transferência: insere a perna do extrato e vincula a contraparte (que está
+  // em outra conta) pelo mesmo transfer_id, marcando ambas como transferência.
+  for (const tr of toTransfer) {
+    const t = rowByKey.get(tr.key)!;
+    const transferId = randomUUID();
+    const { error: insErr } = await supabase.from("transactions").insert({
+      user_id: user.id,
+      type: t.type,
+      descricao: t.descricao,
+      valor: t.valor,
+      data: t.data,
+      categoria: TRANSFER_CATEGORY,
+      account_id: accountId,
+      import_fitid: t.key,
+      transfer_id: transferId,
+    });
+    if (insErr) continue;
+    await supabase
+      .from("transactions")
+      .update({ transfer_id: transferId, categoria: TRANSFER_CATEGORY })
+      .eq("id", tr.counterpartId)
+      .eq("user_id", user.id);
+  }
+
   // Aprende as categorias escolhidas (descrição normalizada -> categoria).
-  const processed = new Set<string>([
-    ...toInsert.map((t) => t.key),
-    ...toReconcile.map((r) => r.key),
-  ]);
+  // Não aprende de transferências (categoria é fixa).
   const learned = new Map<string, string>();
-  for (const t of parsed) {
-    if (!processed.has(t.key)) continue;
-    const categoria = categoriaFor(t.key);
+  for (const r of [...toInsert, ...toReconcile]) {
+    const categoria = "categoria" in r ? r.categoria : null;
     if (!categoria) continue;
+    const t = rowByKey.get(r.key);
+    if (!t) continue;
     const pattern = normalizeDescricao(t.descricao);
     if (pattern) learned.set(pattern, categoria);
   }
@@ -278,6 +313,7 @@ export async function importOfxAction(
     error: null,
     imported: toInsert.length,
     reconciled: toReconcile.length,
+    transfers: toTransfer.length,
     duplicated,
   };
 }

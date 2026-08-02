@@ -13,8 +13,9 @@ import {
   importOfxAction,
   analyzeOfxAction,
   type ImportResult,
-  type RowStatus,
+  type AnalyzedRow,
 } from "@/features/import/actions";
+import type { RowStatus } from "@/features/import/classify";
 
 type Account = { id: string; nome: string };
 
@@ -40,11 +41,13 @@ function formatDateBR(iso: string): string {
 const STATUS_LABEL: Record<RowStatus, string> = {
   novo: "Novo",
   concilia: "Concilia",
+  transferencia: "Transferência",
   importado: "Já importado",
 };
 const STATUS_CLASS: Record<RowStatus, string> = {
   novo: "text-fg-muted",
   concilia: "text-accent",
+  transferencia: "text-credit",
   importado: "text-debit",
 };
 
@@ -65,7 +68,7 @@ export default function OfxImporter({
   const [categoriaByKey, setCategoriaByKey] = useState<Record<string, string>>(
     {},
   );
-  const [statuses, setStatuses] = useState<Record<string, RowStatus>>({});
+  const [statuses, setStatuses] = useState<Record<string, AnalyzedRow>>({});
   const [parseError, setParseError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -85,7 +88,7 @@ export default function OfxImporter({
       // Desmarca por padrão os já importados.
       setExcluded((prev) => {
         const next = new Set(prev);
-        for (const k of keys) if (res[k] === "importado") next.add(k);
+        for (const k of keys) if (res[k]?.status === "importado") next.add(k);
         return next;
       });
     });
@@ -242,6 +245,8 @@ export default function OfxImporter({
               {result.imported} importado(s)
               {result.reconciled > 0 &&
                 `, ${result.reconciled} conciliado(s)`}
+              {result.transfers > 0 &&
+                `, ${result.transfers} transferência(s) vinculada(s)`}
               {result.duplicated > 0 &&
                 `, ${result.duplicated} já existia(m)`}
               .
@@ -285,7 +290,9 @@ export default function OfxImporter({
               <tbody>
                 {txns.map((t) => {
                   const on = !excluded.has(t.key);
-                  const status = statuses[t.key];
+                  const analyzed = statuses[t.key];
+                  const status = analyzed?.status;
+                  const isTransfer = status === "transferencia";
                   return (
                     <tr key={t.key} className={on ? "" : "opacity-40"}>
                       <td className="border-b border-border px-3 py-2">
@@ -303,23 +310,35 @@ export default function OfxImporter({
                         {t.descricao}
                       </td>
                       <td className="border-b border-border px-3 py-2">
-                        <select
-                          value={categoriaByKey[t.key] ?? ""}
-                          onChange={(e) => setCategoria(t.key, e.target.value)}
-                          className="form-select !py-1 text-[0.8rem]"
-                        >
-                          <option value="">—</option>
-                          {categories.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
+                        {isTransfer ? (
+                          <span className="text-[0.8rem] text-fg-muted">
+                            Transferência entre contas
+                          </span>
+                        ) : (
+                          <select
+                            value={categoriaByKey[t.key] ?? ""}
+                            onChange={(e) => setCategoria(t.key, e.target.value)}
+                            className="form-select !py-1 text-[0.8rem]"
+                          >
+                            <option value="">—</option>
+                            {categories.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td className="border-b border-border px-3 py-2 text-[0.72rem]">
                         {status ? (
                           <span className={STATUS_CLASS[status]}>
                             {STATUS_LABEL[status]}
+                            {isTransfer && analyzed?.counterpartName && (
+                              <span className="text-fg-muted">
+                                {" "}
+                                ↔ {analyzed.counterpartName}
+                              </span>
+                            )}
                           </span>
                         ) : (
                           <span className="text-fg-muted">—</span>
