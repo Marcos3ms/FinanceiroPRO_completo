@@ -125,6 +125,106 @@ function BucketTable({
   );
 }
 
+/** Agrupa despesas por categoria, com subtotal por grupo. Ordena os grupos
+ *  pelo maior total (as categorias mais pesadas aparecem primeiro). */
+function groupByCategoria(
+  rows: ConsolidadoRow[],
+): { categoria: string; rows: ConsolidadoRow[]; subtotal: number }[] {
+  const map = new Map<string, ConsolidadoRow[]>();
+  for (const r of rows) {
+    const key = r.categoria ?? "Sem categoria";
+    const list = map.get(key) ?? [];
+    list.push(r);
+    map.set(key, list);
+  }
+  return Array.from(map.entries())
+    .map(([categoria, groupRows]) => ({
+      categoria,
+      rows: groupRows,
+      subtotal: sumRows(groupRows),
+    }))
+    .sort((a, b) => b.subtotal - a.subtotal);
+}
+
+/** Como BucketTable, mas com as linhas agrupadas por categoria e um subtotal
+ *  por grupo. Usada só na coluna Despesas do consolidado por conta. */
+function GroupedBucketTable({
+  title,
+  rows,
+  tone,
+}: {
+  title: string;
+  rows: ConsolidadoRow[];
+  tone: Tone;
+}) {
+  const groups = groupByCategoria(rows);
+  return (
+    <div className="border border-border">
+      <div
+        className={`border-b px-3 py-2 text-center text-[0.75rem] font-semibold uppercase tracking-wider ${TONE_HEADER[tone]}`}
+      >
+        {title}
+      </div>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr>
+            <th className="border-b border-border bg-bg-elevated px-2.5 py-1.5 text-left text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+              Data
+            </th>
+            <th className="border-b border-border bg-bg-elevated px-2.5 py-1.5 text-left text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+              Nome
+            </th>
+            <th className="border-b border-border bg-bg-elevated px-2.5 py-1.5 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+              Valor
+            </th>
+          </tr>
+        </thead>
+        {groups.length === 0 ? (
+          <tbody>
+            <tr>
+              <td
+                colSpan={3}
+                className="px-2.5 py-3 text-center text-[0.75rem] italic text-fg-muted"
+              >
+                —
+              </td>
+            </tr>
+          </tbody>
+        ) : (
+          groups.map((g) => (
+            <tbody key={g.categoria} className="print:break-inside-avoid">
+              <tr>
+                <td
+                  colSpan={2}
+                  className="border-b border-border bg-bg-elevated px-2.5 py-1.5 text-left text-[0.72rem] font-semibold uppercase tracking-wider text-fg-secondary"
+                >
+                  {g.categoria}
+                </td>
+                <td className="num-mono border-b border-border bg-bg-elevated px-2.5 py-1.5 text-right text-[0.75rem] font-semibold text-fg-primary tabular-nums">
+                  {formatBRL(g.subtotal)}
+                </td>
+              </tr>
+              {g.rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="num-mono border-b border-border px-2.5 py-1.5 text-[0.75rem] text-fg-secondary tabular-nums">
+                    {formatDateBR(r.data)}
+                  </td>
+                  <td className="border-b border-border px-2.5 py-1.5 text-[0.8rem] text-fg-primary">
+                    {r.descricao}
+                  </td>
+                  <td className="num-mono border-b border-border px-2.5 py-1.5 text-right text-[0.8rem] text-fg-primary tabular-nums">
+                    {formatBRL(r.valor)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          ))
+        )}
+      </table>
+    </div>
+  );
+}
+
 function SummaryPanel({
   totals,
 }: {
@@ -268,9 +368,9 @@ export default function ConsolidadoPorConta({
                 />
               </div>
 
-              {/* Coluna 3: Despesas */}
+              {/* Coluna 3: Despesas agrupadas por categoria */}
               <div className="flex flex-col gap-4">
-                <BucketTable
+                <GroupedBucketTable
                   title="Despesas"
                   rows={buckets.despesas}
                   tone="despesa"
