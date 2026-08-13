@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Upload, FileText, Check, X } from "lucide-react";
 import { FormGroup } from "@/components/ui/FormField";
 import { formatBRL } from "@/features/common/types";
+import { TRANSFER_CATEGORY } from "@/lib/categories";
 import { parseOfx, type OfxTransaction } from "@/features/import/ofx";
 import {
   suggestCategory,
@@ -149,6 +150,11 @@ export default function OfxImporter({
   const setCategoria = (key: string, value: string) => {
     setCategoriaByKey((prev) => ({ ...prev, [key]: value }));
   };
+
+  // Inclui "Transferência entre contas" como opção manual de categoria.
+  const categoryOptions = categories.includes(TRANSFER_CATEGORY)
+    ? categories
+    : [...categories, TRANSFER_CATEGORY];
 
   const selectedTxns = txns.filter((t) => !excluded.has(t.key));
   const selectedKeys = selectedTxns.map((t) => t.key);
@@ -321,7 +327,7 @@ export default function OfxImporter({
                             className="form-select !py-1 text-[0.8rem]"
                           >
                             <option value="">—</option>
-                            {categories.map((c) => (
+                            {categoryOptions.map((c) => (
                               <option key={c} value={c}>
                                 {c}
                               </option>

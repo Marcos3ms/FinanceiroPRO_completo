@@ -189,7 +189,9 @@ export async function importOfxAction(
   const rowByKey = new Map(parsedFull.map((t) => [t.key, t]));
 
   // Categorias válidas do usuário (para não gravar nome arbitrário).
+  // "Transferência entre contas" é aceita mesmo não sendo gerenciável.
   const validCategorias = new Set(await getCategoryNames(supabase, user.id));
+  validCategorias.add(TRANSFER_CATEGORY);
   const categoriaFor = (key: string): string | null => {
     const c = categoriasByKey[key];
     return c && validCategorias.has(c) ? c : null;
@@ -290,7 +292,7 @@ export async function importOfxAction(
   const learned = new Map<string, string>();
   for (const r of [...toInsert, ...toReconcile]) {
     const categoria = "categoria" in r ? r.categoria : null;
-    if (!categoria) continue;
+    if (!categoria || categoria === TRANSFER_CATEGORY) continue;
     const t = rowByKey.get(r.key);
     if (!t) continue;
     const pattern = normalizeDescricao(t.descricao);
