@@ -171,6 +171,7 @@ export async function importOfxAction(
   accountId: string,
   selectedKeys: string[],
   categoriasByKey: Record<string, string>,
+  transferAccountsByKey: Record<string, { origem: string; destino: string }> = {},
 ): Promise<ImportResult> {
   const supabase = createClient();
   const {
@@ -180,6 +181,13 @@ export async function importOfxAction(
   if (!accountId) return emptyResult("Selecione a conta.");
   if (!(await requireAccount(supabase, user.id, accountId)))
     return emptyResult("Conta inválida.");
+
+  // Contas do usuário, para validar origem/destino de transferências manuais.
+  const { data: acctRows } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("user_id", user.id);
+  const ownedAccounts = new Set((acctRows ?? []).map((a) => a.id as string));
 
   const selected = new Set(selectedKeys);
   const parsedFull = parseOfx(content).filter((t) => selected.has(t.key));
@@ -215,22 +223,44 @@ export async function importOfxAction(
   const toReconcile: { id: string; key: string; categoria: string | null }[] =
     [];
   const toTransfer: { key: string; counterpartId: string }[] = [];
+  const toManualTransfer: { key: string; origem: string; destino: string }[] =
+    [];
   let duplicated = 0;
 
   for (const [key, c] of classification) {
     if (c.status === "importado") {
       duplicated++;
-    } else if (c.status === "concilia" && c.counterpartId) {
+      continue;
+    }
+    // Transferência detectada automaticamente (contraparte já existe).
+    if (c.status === "transferencia" && c.counterpartId) {
+      toTransfer.push({ key, counterpartId: c.counterpartId });
+      continue;
+    }
+    // Transferência marcada manualmente: usuário escolheu a categoria e as
+    // contas de origem e destino (cria as duas pernas).
+    const ta = transferAccountsByKey[key];
+    const isManualTransfer =
+      categoriasByKey[key] === TRANSFER_CATEGORY &&
+      !!ta &&
+      !!ta.origem &&
+      !!ta.destino &&
+      ta.origem !== ta.destino &&
+      ownedAccounts.has(ta.origem) &&
+      ownedAccounts.has(ta.destino);
+    if (isManualTransfer) {
+      toManualTransfer.push({ key, origem: ta.origem, destino: ta.destino });
+      continue;
+    }
+    if (c.status === "concilia" && c.counterpartId) {
       toReconcile.push({
         id: c.counterpartId,
         key,
         categoria: categoriaFor(key),
       });
-    } else if (c.status === "transferencia" && c.counterpartId) {
-      toTransfer.push({ key, counterpartId: c.counterpartId });
-    } else {
-      toInsert.push({ key, categoria: categoriaFor(key) });
+      continue;
     }
+    toInsert.push({ key, categoria: categoriaFor(key) });
   }
 
   // Insere os novos.
@@ -287,6 +317,38 @@ export async function importOfxAction(
       .eq("user_id", user.id);
   }
 
+  // Transferência manual: cria as duas pernas (despesa na origem, receita no
+  // destino) com o mesmo transfer_id. O FITID fica na perna que está na conta
+  // do extrato, para o dedup funcionar em reimportações.
+  for (const mt of toManualTransfer) {
+    const t = rowByKey.get(mt.key)!;
+    const transferId = randomUUID();
+    await supabase.from("transactions").insert([
+      {
+        user_id: user.id,
+        type: "despesa",
+        descricao: t.descricao,
+        valor: t.valor,
+        data: t.data,
+        categoria: TRANSFER_CATEGORY,
+        account_id: mt.origem,
+        transfer_id: transferId,
+        import_fitid: mt.origem === accountId ? t.key : null,
+      },
+      {
+        user_id: user.id,
+        type: "receita",
+        descricao: t.descricao,
+        valor: t.valor,
+        data: t.data,
+        categoria: TRANSFER_CATEGORY,
+        account_id: mt.destino,
+        transfer_id: transferId,
+        import_fitid: mt.destino === accountId ? t.key : null,
+      },
+    ]);
+  }
+
   // Aprende as categorias escolhidas (descrição normalizada -> categoria).
   // Não aprende de transferências (categoria é fixa).
   const learned = new Map<string, string>();
@@ -315,7 +377,7 @@ export async function importOfxAction(
     error: null,
     imported: toInsert.length,
     reconciled: toReconcile.length,
-    transfers: toTransfer.length,
+    transfers: toTransfer.length + toManualTransfer.length,
     duplicated,
   };
 }
