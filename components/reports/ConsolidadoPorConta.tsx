@@ -247,7 +247,7 @@ function SummaryPanel({
     <div className="border border-border">
       <div className="grid grid-cols-2 border-b border-border bg-bg-elevated">
         <div className="px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-wider text-fg-muted">
-          Valor total
+          Resumo geral
         </div>
         <div className="px-3 py-2 text-right text-[0.7rem] font-semibold uppercase tracking-wider text-fg-muted">
           R$
@@ -337,16 +337,14 @@ export default function ConsolidadoPorConta({
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-3 print:pt-0">
-              {/* Coluna 1: Receitas + Sumário + Saldo */}
+            <div className="grid grid-cols-1 gap-4 p-5 pb-0 lg:grid-cols-3 print:pt-0">
+              {/* Coluna 1: Receitas */}
               <div className="flex flex-col gap-4">
                 <BucketTable
                   title="Receitas"
                   rows={buckets.receitas}
                   tone="receita"
                 />
-                <SummaryPanel totals={totals} />
-                <SaldoBanner saldo={saldo} />
               </div>
 
               {/* Coluna 2: Transferências, Impostos, Retiradas */}
@@ -375,6 +373,14 @@ export default function ConsolidadoPorConta({
                   rows={buckets.despesas}
                   tone="despesa"
                 />
+              </div>
+            </div>
+
+            {/* Resumo geral + Saldo: ao final do relatório, após as Despesas */}
+            <div className="flex flex-col p-5 lg:items-end print:break-inside-avoid">
+              <div className="flex w-full flex-col gap-4 lg:w-1/3">
+                <SummaryPanel totals={totals} />
+                <SaldoBanner saldo={saldo} />
               </div>
             </div>
           </article>
