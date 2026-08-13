@@ -120,6 +120,19 @@ function BucketTable({
             ))
           )}
         </tbody>
+        <tfoot>
+          <tr>
+            <td
+              colSpan={2}
+              className="bg-bg-elevated px-2.5 py-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-fg-muted"
+            >
+              Total
+            </td>
+            <td className="num-mono bg-bg-elevated px-2.5 py-1.5 text-right text-[0.8rem] font-bold text-fg-primary tabular-nums">
+              {formatBRL(sumRows(rows))}
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
@@ -220,6 +233,19 @@ function GroupedBucketTable({
             </tbody>
           ))
         )}
+        <tfoot>
+          <tr>
+            <td
+              colSpan={2}
+              className="bg-bg-elevated px-2.5 py-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-fg-muted"
+            >
+              Total
+            </td>
+            <td className="num-mono bg-bg-elevated px-2.5 py-1.5 text-right text-[0.8rem] font-bold text-fg-primary tabular-nums">
+              {formatBRL(sumRows(rows))}
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
