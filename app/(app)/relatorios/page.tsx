@@ -461,6 +461,34 @@ export default async function RelatoriosPage({
       .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
   })();
 
+  // Total geral: consolida saldo anterior, receita e despesas (por categoria)
+  // de todas as contas do escopo. Só faz sentido com mais de uma conta.
+  const resumoTotal: ResumoConta | null = (() => {
+    if (!isResumo || resumoAccounts.length < 2) return null;
+    const despesasMap = new Map<string, number>();
+    let saldoAnterior = 0;
+    let receita = 0;
+    for (const acc of resumoAccounts) {
+      saldoAnterior += acc.saldoAnterior;
+      receita += acc.receita;
+      for (const d of acc.despesas) {
+        despesasMap.set(d.categoria, (despesasMap.get(d.categoria) ?? 0) + d.total);
+      }
+    }
+    const despesas = Array.from(despesasMap.entries())
+      .map(([categoria, total]) => ({ categoria, total }))
+      .sort((a, b) => b.total - a.total);
+    const despesaTotal = despesas.reduce((s, d) => s + d.total, 0);
+    return {
+      accountId: "__total__",
+      accountName: "Total geral",
+      saldoAnterior,
+      receita,
+      despesas,
+      despesaTotal,
+    };
+  })();
+
   // Despesas por categoria (a partir de filteredRows quando há despesas)
   const despesasPorCategoria = (() => {
     const map = new Map<string, number>();
@@ -637,7 +665,7 @@ export default async function RelatoriosPage({
             showSetor={!selectedAccount}
           />
         ) : isResumo ? (
-          <ResumoGeral accounts={resumoAccounts} />
+          <ResumoGeral accounts={resumoAccounts} total={resumoTotal} />
         ) : isExtrato ? (
           <Extrato
             rows={extratoRows.map((r) => ({
