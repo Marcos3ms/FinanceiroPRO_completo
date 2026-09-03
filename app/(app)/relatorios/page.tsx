@@ -215,9 +215,9 @@ export default async function RelatoriosPage({
           .gte("data", sinceStr);
       })(),
       (() => {
-        // Extrato e Consolidado abrem com o saldo anterior calculado
+        // Extrato, Consolidado e Resumo abrem com o saldo anterior calculado
         // automaticamente a partir de TODAS as movimentações antes do período.
-        if (!isExtrato && !isConsolidado) {
+        if (!isExtrato && !isConsolidado && !isResumo) {
           return Promise.resolve({ data: [], error: null });
         }
         // Extrato filtrado por categoria específica não é um saldo real.
@@ -292,7 +292,7 @@ export default async function RelatoriosPage({
   // movimentações reais (receitas − despesas, incluindo transferências) até o
   // início do período. Se não houver checkpoint, acumula desde o começo.
   const saldoAnteriorMap =
-    isExtrato || isConsolidado
+    isExtrato || isConsolidado || isResumo
       ? saldoAnteriorByAccount(
           (priorRows ?? []).map((r) => ({
             type: r.type,
@@ -452,6 +452,7 @@ export default async function RelatoriosPage({
         return {
           accountId: id,
           accountName: v.accountName,
+          saldoAnterior: saldoAnteriorMap.get(id) ?? 0,
           receita: v.receita,
           despesas,
           despesaTotal,

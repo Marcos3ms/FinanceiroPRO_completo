@@ -5,6 +5,7 @@ export type ResumoDespesa = { categoria: string; total: number };
 export type ResumoConta = {
   accountId: string;
   accountName: string;
+  saldoAnterior: number;
   receita: number;
   despesas: ResumoDespesa[];
   despesaTotal: number;
@@ -29,7 +30,7 @@ export default function ResumoGeral({ accounts }: { accounts: ResumoConta[] }) {
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-3">
         {accounts.map((acc) => {
-          const saldo = acc.receita - acc.despesaTotal;
+          const saldo = acc.saldoAnterior + acc.receita - acc.despesaTotal;
           return (
             <article
               key={acc.accountId}
@@ -46,6 +47,17 @@ export default function ResumoGeral({ accounts }: { accounts: ResumoConta[] }) {
               </div>
 
               <div className="px-3 py-2 text-[0.85rem]">
+                {/* Saldo anterior (acumulado do período anterior) */}
+                <div className={`${ROW} border-b border-border py-1.5`}>
+                  <span />
+                  <span className="font-semibold uppercase tracking-wide text-fg-secondary">
+                    Saldo anterior
+                  </span>
+                  <span className="num-mono font-semibold text-fg-primary tabular-nums">
+                    {formatBRL(acc.saldoAnterior)}
+                  </span>
+                </div>
+
                 {/* 1 RECEITA */}
                 <div className={`${ROW} border-b border-border py-1.5`}>
                   <span className="text-fg-muted">1</span>
@@ -98,11 +110,11 @@ export default function ResumoGeral({ accounts }: { accounts: ResumoConta[] }) {
                   </span>
                 </div>
 
-                {/* Saldo (Receita − Despesas) */}
+                {/* Saldo final (Saldo anterior + Receita − Despesas) */}
                 <div className={`${ROW} py-1.5`}>
                   <span />
                   <span className="text-[0.72rem] font-semibold uppercase tracking-wider text-fg-muted">
-                    Saldo
+                    Saldo final
                   </span>
                   <span
                     className={`num-mono font-bold tabular-nums ${
