@@ -12,6 +12,9 @@ import ConsolidadoPorConta, {
   type AccountConsolidado,
   type ConsolidadoRow,
 } from "@/components/reports/ConsolidadoPorConta";
+import ResumoGeral, {
+  type ResumoConta,
+} from "@/components/reports/ResumoGeral";
 import PrintButton from "@/components/reports/PrintButton";
 import PeriodoFilter from "@/components/reports/PeriodoFilter";
 import { saldoAnteriorByAccount } from "@/features/reports/saldoAnterior";
@@ -41,7 +44,8 @@ type SP = {
     | "comparativo"
     | "extrato"
     | "agendamentos"
-    | "consolidado";
+    | "consolidado"
+    | "resumo";
   account_id?: string;
   categoria?: string;
   mes?: string;
@@ -128,6 +132,7 @@ export default async function RelatoriosPage({
   const isExtrato = tipo === "extrato";
   const isAgendamentos = tipo === "agendamentos";
   const isConsolidado = tipo === "consolidado";
+  const isResumo = tipo === "resumo";
 
   // Período: "mes" (padrão) usa o mês inteiro; "personalizado" usa um intervalo
   // de datas dentro/através de meses, definido por `inicio` e `fim` (inclusivos).
@@ -398,6 +403,63 @@ export default async function RelatoriosPage({
       .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
   })();
 
+  // Resumo Geral: um bloco por conta com Receita total e Despesas por categoria
+  // (cada categoria com seu total), semeando todas as contas do escopo.
+  const resumoAccounts: ResumoConta[] = (() => {
+    if (!isResumo) return [];
+    const byAccount = new Map<
+      string,
+      { accountName: string; receita: number; despesas: Map<string, number> }
+    >();
+    const ensure = (key: string, fallbackName: string) => {
+      const existing = byAccount.get(key);
+      if (existing) return existing;
+      const created = {
+        accountName: accountNameById.get(key) ?? fallbackName,
+        receita: 0,
+        despesas: new Map<string, number>(),
+      };
+      byAccount.set(key, created);
+      return created;
+    };
+
+    // Semeia todas as contas do escopo (aparecem mesmo sem movimentação).
+    for (const a of accounts ?? []) {
+      if (accountId && a.id !== accountId) continue;
+      ensure(a.id, a.nome);
+    }
+
+    for (const r of periodRows) {
+      const accountName = Array.isArray(r.accounts)
+        ? (r.accounts[0]?.nome ?? "—")
+        : ((r.accounts as { nome: string } | null)?.nome ?? "—");
+      const key = r.account_id ?? "sem-conta";
+      const entry = ensure(key, accountName);
+      if (r.type === "receita") {
+        entry.receita += Number(r.valor);
+      } else {
+        const cat = r.categoria ?? "Sem categoria";
+        entry.despesas.set(cat, (entry.despesas.get(cat) ?? 0) + Number(r.valor));
+      }
+    }
+
+    return Array.from(byAccount.entries())
+      .map(([id, v]) => {
+        const despesas = Array.from(v.despesas.entries())
+          .map(([categoria, total]) => ({ categoria, total }))
+          .sort((a, b) => b.total - a.total);
+        const despesaTotal = despesas.reduce((s, d) => s + d.total, 0);
+        return {
+          accountId: id,
+          accountName: v.accountName,
+          receita: v.receita,
+          despesas,
+          despesaTotal,
+        };
+      })
+      .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
+  })();
+
   // Despesas por categoria (a partir de filteredRows quando há despesas)
   const despesasPorCategoria = (() => {
     const map = new Map<string, number>();
@@ -500,6 +562,7 @@ export default async function RelatoriosPage({
               <select name="tipo" className="form-select" defaultValue={tipo}>
                 <option value="extrato">Extrato</option>
                 <option value="consolidado">Consolidado por conta</option>
+                <option value="resumo">Resumo Geral</option>
                 <option value="comparativo">Comparativo</option>
                 <option value="receitas">Receitas</option>
                 <option value="despesas">Despesas</option>
@@ -572,6 +635,8 @@ export default async function RelatoriosPage({
             accounts={consolidadoAccounts}
             showSetor={!selectedAccount}
           />
+        ) : isResumo ? (
+          <ResumoGeral accounts={resumoAccounts} />
         ) : isExtrato ? (
           <Extrato
             rows={extratoRows.map((r) => ({
