@@ -23,16 +23,19 @@ function ConfirmSubmit({ disabled }: { disabled: boolean }) {
 export default function DeleteMyAccountButton({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
+  const [password, setPassword] = useState("");
   const [state, formAction] = useFormState(
     deleteMyAccountAction,
     initialActionState,
   );
 
-  const matches = typed.trim().toLowerCase() === email.trim().toLowerCase();
+  const emailMatches = typed.trim().toLowerCase() === email.trim().toLowerCase();
+  const canSubmit = emailMatches && password.length > 0;
 
   function close() {
     setOpen(false);
     setTyped("");
+    setPassword("");
   }
 
   return (
@@ -76,6 +79,23 @@ export default function DeleteMyAccountButton({ email }: { email: string }) {
             className="form-input mb-3"
           />
 
+          <label
+            htmlFor="confirm-delete-password"
+            className="mb-1.5 block text-[0.85rem] text-fg-secondary"
+          >
+            E confirme sua senha:
+          </label>
+          <input
+            id="confirm-delete-password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Sua senha"
+            className="form-input mb-3"
+          />
+
           {state.error && (
             <p className="mb-3 rounded border border-brand-red-border bg-brand-red-bg px-3 py-2 text-sm text-brand-red">
               {state.error}
@@ -90,7 +110,7 @@ export default function DeleteMyAccountButton({ email }: { email: string }) {
             >
               Cancelar
             </button>
-            <ConfirmSubmit disabled={!matches} />
+            <ConfirmSubmit disabled={!canSubmit} />
           </div>
         </form>
       </Modal>
