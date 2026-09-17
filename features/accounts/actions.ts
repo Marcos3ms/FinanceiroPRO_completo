@@ -48,6 +48,50 @@ export async function deleteAccountAction(formData: FormData) {
   if (!id) return;
 
   const supabase = createClient();
-  await supabase.from("accounts").delete().eq("id", id);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Descobre as transferências que envolvem esta conta, para remover também a
+  // perna correspondente que fica em OUTRA conta (uma transferência é uma
+  // operação única entre duas contas — não deve sobrar meia transferência).
+  const { data: legs } = await supabase
+    .from("transactions")
+    .select("transfer_id")
+    .eq("user_id", user.id)
+    .eq("account_id", id)
+    .not("transfer_id", "is", null);
+  const transferIds = Array.from(
+    new Set((legs ?? []).map((l) => l.transfer_id as string)),
+  );
+
+  // Remove todos os lançamentos (receitas/despesas) da conta. Isso cobre também
+  // relatórios, visão geral e importações, que derivam das transações.
+  await supabase
+    .from("transactions")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("account_id", id);
+
+  // Remove a contraparte das transferências (a perna que está na outra conta).
+  if (transferIds.length > 0) {
+    await supabase
+      .from("transactions")
+      .delete()
+      .eq("user_id", user.id)
+      .in("transfer_id", transferIds);
+  }
+
+  // Remove os agendamentos vinculados à conta.
+  await supabase
+    .from("schedules")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("account_id", id);
+
+  // Por fim, remove a própria conta.
+  await supabase.from("accounts").delete().eq("id", id).eq("user_id", user.id);
+
   revalidatePath("/", "layout");
 }

@@ -204,7 +204,7 @@ create table if not exists public.transactions (
   valor numeric(14, 2) not null,
   data date not null,
   categoria text,
-  account_id uuid references public.accounts(id) on delete set null,
+  account_id uuid references public.accounts(id) on delete cascade,
   created_at timestamptz not null default now()
 );
 
@@ -252,7 +252,7 @@ create table if not exists public.schedules (
   frequencia text not null check (frequencia in ('mensal', 'semanal', 'anual')),
   vencimento date not null,
   categoria text,
-  account_id uuid references public.accounts(id) on delete set null,
+  account_id uuid references public.accounts(id) on delete cascade,
   lembretes text[] not null default '{}',
   created_at timestamptz not null default now()
 );
@@ -315,6 +315,24 @@ begin
   update public.schedules set paid_at = now() where id = p_schedule_id;
 end;
 $$;
+
+
+-- ==================== cascade: apagar conta remove seus lançamentos ====================
+-- Ao excluir uma conta, remove automaticamente as transações e agendamentos
+-- vinculados. Antes era "on delete set null", que deixava lançamentos órfãos.
+-- (A action deleteAccountAction também faz essa limpeza no código, incluindo a
+--  contraparte das transferências.)
+alter table public.transactions
+  drop constraint if exists transactions_account_id_fkey;
+alter table public.transactions
+  add constraint transactions_account_id_fkey
+  foreign key (account_id) references public.accounts(id) on delete cascade;
+
+alter table public.schedules
+  drop constraint if exists schedules_account_id_fkey;
+alter table public.schedules
+  add constraint schedules_account_id_fkey
+  foreign key (account_id) references public.accounts(id) on delete cascade;
 
 
 -- ==================== backfill: categorias padrão p/ usuários existentes ====================
