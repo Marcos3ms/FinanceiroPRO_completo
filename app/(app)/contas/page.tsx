@@ -3,10 +3,9 @@ import { Wallet } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
 import NovaContaCard from "@/components/accounts/NovaContaCard";
-import { DeleteIconButton } from "@/components/ui/DeleteButton";
+import DeleteAccountButton from "@/components/accounts/DeleteAccountButton";
 import EditButton from "@/components/ui/EditButton";
 import { createClient } from "@/lib/supabase/server";
-import { deleteAccountAction } from "@/features/accounts/actions";
 
 export const metadata = { title: "Contas - FinanceiroPro" };
 
@@ -46,12 +45,7 @@ export default async function ContasPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <EditButton payload={{ kind: "conta", row: acc }} />
-                  <form action={deleteAccountAction}>
-                    <input type="hidden" name="id" value={acc.id} />
-                    <DeleteIconButton
-                      confirmMessage={`Excluir a conta "${acc.nome}"?`}
-                    />
-                  </form>
+                  <DeleteAccountButton id={acc.id} nome={acc.nome} />
                 </div>
               </div>
               <div>
