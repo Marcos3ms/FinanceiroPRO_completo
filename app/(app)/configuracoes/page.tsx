@@ -1,9 +1,10 @@
-import { Lock, Settings as SettingsIcon, Tag } from "lucide-react";
+import { Lock, Settings as SettingsIcon, Tag, AlertTriangle } from "lucide-react";
 import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
 import OpenModalButton from "@/components/settings/OpenModalButton";
 import CategoriesManager from "@/components/settings/CategoriesManager";
+import DeleteMyAccountButton from "@/components/settings/DeleteMyAccountButton";
 import { createClient } from "@/lib/supabase/server";
 import { getCategories } from "@/features/categories/queries";
 
@@ -79,6 +80,24 @@ export default async function ConfiguracoesPage() {
           </div>
           <div className="rounded border border-border bg-bg-secondary p-5">
             <CategoriesManager categories={categories} />
+          </div>
+
+          <div className="mb-3 mt-8 flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-wider text-brand-red">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Zona de perigo
+          </div>
+          <div className="flex flex-col gap-4 rounded border border-brand-red-border bg-brand-red-bg p-5 sm:flex-row sm:items-center">
+            <div className="flex-1">
+              <div className="text-[0.95rem] font-semibold text-fg-primary">
+                Excluir conta definitivamente
+              </div>
+              <div className="text-[0.85rem] text-fg-secondary">
+                Apaga sua conta e todos os dados (contas, lançamentos,
+                agendamentos, categorias e relatórios) do banco de dados. Esta
+                ação não pode ser desfeita.
+              </div>
+            </div>
+            <DeleteMyAccountButton email={user.email ?? ""} />
           </div>
         </div>
         <p className="mt-3 text-xs text-fg-muted">
