@@ -175,6 +175,7 @@ export default async function RelatoriosPage({
         .from("accounts")
         .select("id, nome, banco, agencia, conta")
         .eq("user_id", user.id)
+        .order("ordem", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
       (() => {
         if (isAgendamentos) {
@@ -308,6 +309,10 @@ export default async function RelatoriosPage({
     (accounts ?? []).map((a) => [a.id, a.nome]),
   );
 
+  // Ordem de exibição das contas nos relatórios (definida em Contas).
+  const accountOrder = new Map((accounts ?? []).map((a, i) => [a.id, i]));
+  const orderOf = (id: string) => accountOrder.get(id) ?? Number.MAX_SAFE_INTEGER;
+
   // Movimentações do período (exclui os "Saldo anterior" lançados no próprio
   // período — esses abrem o extrato do período seguinte).
   const periodRows = rows.filter(
@@ -400,7 +405,7 @@ export default async function RelatoriosPage({
         accountName,
         rows: accRows,
       }))
-      .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
+      .sort((a, b) => orderOf(a.accountId) - orderOf(b.accountId));
   })();
 
   // Resumo Geral: um bloco por conta com Receita total e Despesas por categoria
@@ -458,7 +463,7 @@ export default async function RelatoriosPage({
           despesaTotal,
         };
       })
-      .sort((a, b) => a.accountName.localeCompare(b.accountName, "pt-BR"));
+      .sort((a, b) => orderOf(a.accountId) - orderOf(b.accountId));
   })();
 
   // Total geral: consolida saldo anterior, receita e despesas (por categoria)

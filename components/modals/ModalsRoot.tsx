@@ -4,6 +4,7 @@ import NovaReceitaModal from "./NovaReceitaModal";
 import NovaDespesaModal from "./NovaDespesaModal";
 import AgendarModal from "./AgendarModal";
 import NovaContaModal from "./NovaContaModal";
+import ReordenarContasModal from "./ReordenarContasModal";
 import EditProfileModal from "./EditProfileModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 
@@ -14,6 +15,7 @@ export default function ModalsRoot() {
       <NovaDespesaModal />
       <AgendarModal />
       <NovaContaModal />
+      <ReordenarContasModal />
       <EditProfileModal />
       <ChangePasswordModal />
     </>

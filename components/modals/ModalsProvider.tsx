@@ -19,6 +19,7 @@ export type ModalKey =
   | "nova-despesa"
   | "agendar"
   | "nova-conta"
+  | "reordenar-contas"
   | "editar-perfil"
   | "alterar-senha"
   | null;

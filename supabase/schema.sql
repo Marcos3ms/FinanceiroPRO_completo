@@ -174,7 +174,19 @@ create table if not exists public.accounts (
   created_at timestamptz not null default now()
 );
 
+-- Ordem de exibição das contas (relatórios e listas). Null vai para o fim.
+alter table public.accounts add column if not exists ordem integer;
+
 create index if not exists accounts_user_id_idx on public.accounts(user_id);
+
+-- Backfill: define a ordem inicial pelas datas de criação p/ contas sem ordem.
+with ranked as (
+  select id, row_number() over (partition by user_id order by created_at) - 1 as rn
+  from public.accounts
+  where ordem is null
+)
+update public.accounts a set ordem = r.rn
+from ranked r where a.id = r.id;
 
 alter table public.accounts enable row level security;
 

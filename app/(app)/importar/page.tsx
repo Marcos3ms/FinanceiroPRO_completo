@@ -20,6 +20,7 @@ export default async function ImportarPage() {
       .from("accounts")
       .select("id, nome")
       .eq("user_id", user.id)
+      .order("ordem", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true }),
     getCategoryNames(supabase, user.id),
     getCategoryRules(supabase, user.id),

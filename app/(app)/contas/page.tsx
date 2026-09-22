@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { Wallet, ArrowUpDown } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
 import NovaContaCard from "@/components/accounts/NovaContaCard";
 import DeleteAccountButton from "@/components/accounts/DeleteAccountButton";
+import OpenModalButton from "@/components/settings/OpenModalButton";
 import EditButton from "@/components/ui/EditButton";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,6 +21,7 @@ export default async function ContasPage() {
     .from("accounts")
     .select("id, nome, banco, agencia, conta")
     .eq("user_id", user.id)
+    .order("ordem", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 
   return (
@@ -31,6 +33,14 @@ export default async function ContasPage() {
       />
 
       <section className="px-4 pb-8 sm:px-8">
+        {(accounts ?? []).length > 1 && (
+          <div className="mb-5 flex justify-end">
+            <OpenModalButton modalKey="reordenar-contas">
+              <ArrowUpDown className="h-4 w-4" />
+              Reordenar contas
+            </OpenModalButton>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
           <NovaContaCard />
 

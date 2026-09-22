@@ -29,6 +29,7 @@ export default async function AppLayout({
         .from("accounts")
         .select("id, nome, banco, agencia, conta")
         .eq("user_id", user.id)
+        .order("ordem", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
       getCategoryNames(supabase, user.id),
     ]);

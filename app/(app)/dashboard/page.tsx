@@ -50,6 +50,7 @@ export default async function DashboardPage() {
         .from("accounts")
         .select("id, nome")
         .eq("user_id", user.id)
+        .order("ordem", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
       supabase
         .from("profiles")

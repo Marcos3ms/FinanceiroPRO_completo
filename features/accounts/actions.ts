@@ -43,6 +43,52 @@ export async function saveAccountAction(
   return { error: null, ok: true };
 }
 
+/**
+ * Move uma conta para cima ou para baixo na ordem de exibição (relatórios e
+ * listas). Normaliza a ordem de todas as contas do usuário (0..n-1) a cada
+ * movimento, para não depender de valores esparsos/nulos.
+ */
+export async function moveAccountAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const dir = String(formData.get("dir") ?? "");
+  if (!id || (dir !== "up" && dir !== "down")) return;
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: accts } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("user_id", user.id)
+    .order("ordem", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+
+  const list = (accts ?? []).map((a) => a.id as string);
+  const idx = list.indexOf(id);
+  if (idx === -1) return;
+
+  const target = dir === "up" ? idx - 1 : idx + 1;
+  if (target < 0 || target >= list.length) return;
+
+  [list[idx], list[target]] = [list[target], list[idx]];
+
+  // Grava a nova ordem sequencial para todas as contas.
+  await Promise.all(
+    list.map((accId, i) =>
+      supabase
+        .from("accounts")
+        .update({ ordem: i })
+        .eq("id", accId)
+        .eq("user_id", user.id),
+    ),
+  );
+
+  revalidatePath("/", "layout");
+}
+
 export async function deleteAccountAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
