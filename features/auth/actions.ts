@@ -6,6 +6,22 @@ import { createClient } from "@/lib/supabase/server";
 
 export type AuthState = { error: string | null };
 
+const SERVER_DOWN_MSG =
+  "Não foi possível conectar ao servidor de autenticação. Ele pode estar temporariamente indisponível. Tente novamente em alguns minutos.";
+
+/** Normaliza o erro do Supabase numa mensagem legível (evita exibir "{}"). */
+function authErrorMessage(err: unknown): string {
+  const msg =
+    err && typeof err === "object" && "message" in err
+      ? String((err as { message: unknown }).message ?? "").trim()
+      : String(err ?? "").trim();
+  if (!msg || msg === "{}" || /gateway timeout|fetch failed|timeout/i.test(msg))
+    return SERVER_DOWN_MSG;
+  if (/invalid login credentials/i.test(msg))
+    return "E-mail ou senha incorretos.";
+  return msg;
+}
+
 export async function loginAction(
   _prev: AuthState,
   formData: FormData,
@@ -18,9 +34,18 @@ export async function loginAction(
   }
 
   const supabase = createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let authError: unknown = null;
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    authError = error;
+  } catch (e) {
+    authError = e;
+  }
 
-  if (error) return { error: error.message };
+  if (authError) return { error: authErrorMessage(authError) };
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
@@ -43,15 +68,21 @@ export async function signupAction(
   }
 
   const supabase = createClient();
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName, username },
-    },
-  });
+  let authError: unknown = null;
+  try {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName, username },
+      },
+    });
+    authError = error;
+  } catch (e) {
+    authError = e;
+  }
 
-  if (error) return { error: error.message };
+  if (authError) return { error: authErrorMessage(authError) };
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
