@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/signup",
   "/auth/callback",
+  "/auth/confirm",
   "/recuperar-senha",
   "/redefinir-senha",
 ];
