@@ -60,6 +60,15 @@ export default function LoginForm() {
         </p>
       )}
 
+      <div className="-mt-1 text-right">
+        <Link
+          href="/recuperar-senha"
+          className="text-sm text-brand-blue hover:underline"
+        >
+          Esqueci minha senha
+        </Link>
+      </div>
+
       <SubmitButton />
 
       <p className="mt-2 text-center text-sm text-fg-secondary">

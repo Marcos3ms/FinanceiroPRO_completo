@@ -5,7 +5,13 @@ export const metadata = { title: "Receitas - FinanceiroPro" };
 export default function ReceitasPage({
   searchParams,
 }: {
-  searchParams: { categoria?: string; mes?: string };
+  searchParams: {
+    categoria?: string;
+    mes?: string;
+    account_id?: string;
+    q?: string;
+    page?: string;
+  };
 }) {
   return (
     <TransactionsView

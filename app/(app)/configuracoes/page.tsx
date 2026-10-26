@@ -1,4 +1,10 @@
-import { Lock, Settings as SettingsIcon, Tag, AlertTriangle } from "lucide-react";
+import {
+  Lock,
+  Settings as SettingsIcon,
+  Tag,
+  AlertTriangle,
+  Download,
+} from "lucide-react";
 import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
@@ -80,6 +86,30 @@ export default async function ConfiguracoesPage() {
           </div>
           <div className="rounded border border-border bg-bg-secondary p-5">
             <CategoriesManager categories={categories} />
+          </div>
+
+          <div className="mb-3 mt-8 flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-wider text-fg-muted">
+            <Download className="h-3.5 w-3.5" />
+            Backup dos dados
+          </div>
+          <div className="flex flex-col gap-4 rounded border border-border bg-bg-secondary p-5 sm:flex-row sm:items-center">
+            <div className="flex-1">
+              <div className="text-[0.95rem] font-semibold text-fg-primary">
+                Exportar meus dados
+              </div>
+              <div className="text-[0.85rem] text-fg-muted">
+                Baixe uma cópia de tudo (contas, lançamentos, agendamentos e
+                categorias). Guarde com segurança ou envie ao seu contador.
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <a href="/api/backup" className="btn btn-outline" download>
+                Backup (JSON)
+              </a>
+              <a href="/api/backup?format=csv" className="btn btn-outline" download>
+                Lançamentos (CSV)
+              </a>
+            </div>
           </div>
 
           <div className="mb-3 mt-8 flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-wider text-brand-red">

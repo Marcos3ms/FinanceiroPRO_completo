@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import HeaderActions from "@/components/layout/HeaderActions";
 import FilterBar, { FilterGroup } from "@/components/ui/FilterBar";
@@ -42,7 +42,11 @@ type SearchParams = {
   categoria?: string;
   mes?: string;
   account_id?: string;
+  q?: string;
+  page?: string;
 };
+
+const PAGE_SIZE = 50;
 
 export default async function TransactionsView({
   type,
@@ -76,11 +80,16 @@ export default async function TransactionsView({
   ]);
 
   const accountId = searchParams.account_id ?? "";
+  const q = (searchParams.q ?? "").trim();
+  const page = Math.max(1, Number(searchParams.page) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   let query = supabase
     .from("transactions")
     .select(
       "id, descricao, valor, data, categoria, account_id, transfer_id, desconto, acrescimo, payment_method, payment_details, accounts(nome)",
+      { count: "exact" },
     )
     .eq("user_id", user.id)
     .eq("type", type)
@@ -91,10 +100,25 @@ export default async function TransactionsView({
 
   if (searchParams.categoria) query = query.eq("categoria", searchParams.categoria);
   if (accountId) query = query.eq("account_id", accountId);
+  if (q) query = query.ilike("descricao", `%${q}%`);
 
-  const { data: rows } = await query;
+  const { data: rows, count } = await query.range(from, to);
   const transactions = rows ?? [];
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const basePath = type === "receita" ? "/receitas" : "/despesas";
+
+  // Monta o link de uma página preservando os filtros atuais.
+  const pageHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (accountId) sp.set("account_id", accountId);
+    if (searchParams.categoria) sp.set("categoria", searchParams.categoria);
+    if (mes) sp.set("mes", mes);
+    if (q) sp.set("q", q);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
 
   // Para transferências, descobre as contas de origem (perna despesa) e
   // destino (perna receita) buscando as duas pernas pelo transfer_id.
@@ -163,6 +187,15 @@ export default async function TransactionsView({
                 type="month"
                 className="form-input"
                 defaultValue={mes}
+              />
+            </FilterGroup>
+            <FilterGroup label="Buscar">
+              <input
+                name="q"
+                type="search"
+                className="form-input"
+                placeholder="Descrição..."
+                defaultValue={q}
               />
             </FilterGroup>
             <button type="submit" className="btn btn-blue">
@@ -293,6 +326,34 @@ export default async function TransactionsView({
             </tbody>
           )}
         </DataTableWrapper>
+
+        {total > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+            <span className="text-[0.8rem] text-fg-muted">
+              {total} lançamento(s) · página {page} de {totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link href={pageHref(page - 1)} className="btn btn-outline">
+                  <ChevronLeft className="h-4 w-4" /> Anterior
+                </Link>
+              ) : (
+                <span className="btn btn-outline pointer-events-none opacity-40">
+                  <ChevronLeft className="h-4 w-4" /> Anterior
+                </span>
+              )}
+              {page < totalPages ? (
+                <Link href={pageHref(page + 1)} className="btn btn-outline">
+                  Próxima <ChevronRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <span className="btn btn-outline pointer-events-none opacity-40">
+                  Próxima <ChevronRight className="h-4 w-4" />
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </section>
     </>
   );
